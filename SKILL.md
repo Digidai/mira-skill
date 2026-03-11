@@ -1,11 +1,45 @@
 ---
-namespace: clawdbot
 name: mira
+description: >-
+  AI recruiting and talent-acquisition skill for Claude Code. Source candidates,
+  search for talent, grade applicants against job descriptions, score resumes,
+  evaluate CVs, run staffing analytics, compare candidates, find replacement hires,
+  and perform headhunting — all from the terminal. Handles recruiter workflows
+  end-to-end: building candidate searches, filtering results, scoring CVs against
+  JDs, and surfacing hiring-market insights. Powered by OpenJobsAI.
 version: 1.3.0
-always: false
 metadata:
-  author: OpenJobsAI
-  license: proprietary
+  clawdbot:
+    emoji: "\U0001F50D"
+    always: false
+  openclaw:
+    emoji: "\U0001F50D"
+    always: false
+    homepage: https://www.openjobs-ai.com
+    primaryEnv: OPENJOBS_API_KEY
+    requires:
+      env:
+        - OPENJOBS_API_KEY
+    os:
+      - macos
+      - linux
+      - windows
+    tags:
+      - recruiting
+      - hiring
+      - talent
+      - sourcing
+      - hr
+      - candidates
+      - linkedin
+      - resume
+      - cv
+      - grading
+      - headhunting
+      - staffing
+    category: Business
+    author: OpenJobsAI
+    license: proprietary
 ---
 
 # Mira — AI Recruiting Skill

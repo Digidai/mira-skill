@@ -1,0 +1,31 @@
+# ClawHub publish exclusions
+# Files listed here will NOT be included when publishing to ClawHub
+
+# Git
+.git/
+.gitignore
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment & secrets
+.env
+.env.*
+credentials.json
+
+# Development
+*.bak
+*.backup
+*.tmp
+*.log
+
+# Documentation (not part of the skill itself)
+# README.md is kept for GitHub but ClawHub uses SKILL.md description
