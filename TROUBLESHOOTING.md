@@ -1,0 +1,225 @@
+# Mira Recruiting Skill -- Troubleshooting Guide
+
+Use this document when an API call to Mira fails or returns unexpected results. Each section tells you exactly what to do.
+
+---
+
+## 1. HTTP Error Handling
+
+When an API call returns a non-2xx status code, take the action listed below. Do NOT blindly retry every error -- some are permanent.
+
+| Status Code | Meaning | Action |
+|---|---|---|
+| **400** Bad Request | The request body or query parameters are malformed. | Read the error message carefully. Fix the request payload (wrong field name, invalid enum value, missing required field) and retry once. Do NOT retry with the same payload. |
+| **401** Unauthorized | The API key or auth token is missing, expired, or invalid. | Do NOT retry. Inform the user that authentication has failed and ask them to verify their Mira API credentials. |
+| **403** Forbidden | The credentials are valid but lack permission for this resource or action. | Do NOT retry. Tell the user they do not have permission for the requested operation and suggest they check their account role or plan tier. |
+| **404** Not Found | The endpoint path or a referenced resource ID does not exist. | Verify the URL path is correct. If a candidate or job ID was passed, confirm it exists. Do NOT retry with the same ID -- inform the user the resource was not found. |
+| **422** Unprocessable Entity | The request is syntactically valid but semantically wrong. **This is the most common error -- see Section 6 for location-specific 422s.** | Read the error body for field-level details. Fix the offending field value and retry once. |
+| **429** Too Many Requests | Rate limit exceeded. | Follow the rate-limiting strategy in Section 7. Wait for the duration specified in the `Retry-After` header before retrying. |
+| **500** Internal Server Error | An unexpected error on Mira's servers. | Retry the exact same request up to 2 times with exponential backoff (2s, then 4s). If it still fails, inform the user that the Mira service is experiencing an internal error. |
+| **502** Bad Gateway | An upstream server returned an invalid response to Mira. | Retry up to 2 times with exponential backoff (2s, then 4s). If it persists, inform the user of a temporary service issue. |
+| **503** Service Unavailable | Mira is temporarily down for maintenance or overloaded. | Check for a `Retry-After` header. If present, wait that long. Otherwise, retry up to 2 times with exponential backoff (5s, then 10s). If it still fails, tell the user the service is temporarily unavailable. |
+
+### General Rules
+
+- **4xx errors (except 429):** Fix the request before retrying. Repeating the same request will produce the same error.
+- **5xx errors:** These may be transient. Retry with backoff, but cap retries at 2 attempts.
+- **Always surface the error message from the response body** -- it often contains actionable detail.
+
+---
+
+## 2. Network Errors
+
+These errors occur before any HTTP status code is received.
+
+| Error Type | Symptoms | Action |
+|---|---|---|
+| **Timeout (>30s)** | The request hangs and eventually times out. | Retry once with the same request. If it times out again, inform the user that the Mira API is not responding and suggest trying again later. Do NOT increase the timeout beyond 30 seconds. |
+| **DNS Failure** | Cannot resolve the API hostname. Error messages mention `ENOTFOUND`, `getaddrinfo`, or similar. | Do NOT retry immediately. Inform the user that the API hostname could not be resolved. This usually indicates a network configuration problem or that the service domain has changed. |
+| **Connection Refused** | The server actively refused the connection. Error messages mention `ECONNREFUSED`. | Retry once after 5 seconds. If it fails again, inform the user that the Mira service is not accepting connections and may be down. |
+| **SSL/TLS Errors** | Certificate validation failures, handshake errors, or `UNABLE_TO_VERIFY_LEAF_SIGNATURE`. | Do NOT retry. Do NOT disable certificate verification. Inform the user that there is a TLS certificate problem with the Mira API. This may indicate a configuration issue or a man-in-the-middle concern. |
+
+---
+
+## 3. Empty Results Troubleshooting
+
+When a search or list call returns zero results (`[]` or an empty `candidates` array), do NOT immediately tell the user "no results found." First consider these common causes and attempt fixes.
+
+### Common Causes and Fixes
+
+| Cause | How to Detect | Fix |
+|---|---|---|
+| **Filters too restrictive** | Multiple filters were applied (e.g., location + title + skills + years of experience all at once). | Remove or relax one filter at a time, starting with the most restrictive. Re-run the query after each change to see if results appear. Report back to the user what filter combination yields results. |
+| **Location abbreviations used** | The location filter contains abbreviations like "US", "CA", "NY", "SF", "UK". | Replace with full names: "United States", "California", "New York", "San Francisco", "United Kingdom". See Section 6 for details. |
+| **Wrong field enum value** | A filter uses a value that is not in the API's allowed enum set (e.g., `seniority: "sr"` instead of `seniority: "senior"`). | Check the API reference for valid enum values for the field. Correct the value and retry. |
+| **Typos in company or school names** | The company or school name does not exactly match what Mira has indexed. | Try a partial match or broader search term. For example, use "Google" instead of "Google LLC" or "Alphabet Inc." |
+| **Date range too narrow** | A date-based filter (e.g., last active) excludes most candidates. | Widen the date range or remove the date filter entirely. |
+
+### What to Tell the User
+
+After attempting fixes, if results are still empty, tell the user:
+- Which filters were applied
+- Which filters were relaxed during troubleshooting
+- That the combination of criteria did not match any candidates in Mira's database
+- Suggest specific filter relaxations they might try
+
+---
+
+## 4. Malformed Response Handling
+
+Sometimes the API returns a 2xx status but the response body is unexpected.
+
+### Incomplete or Truncated JSON
+
+- **Detection:** JSON parsing fails with a syntax error.
+- **Action:** Retry the request once. If the response is still malformed, inform the user that the API returned an invalid response and report the first 200 characters of the raw body for diagnostic purposes.
+
+### Unexpectedly Null Fields
+
+- **Detection:** Fields that should contain data (e.g., `candidate.name`, `candidate.email`, `grade.score`) are `null` or missing.
+- **Action:** Do NOT treat null fields as errors that block the entire response. Present the data that IS available to the user. Note which fields are missing. For example: "I found 5 candidates but email addresses are unavailable for 2 of them."
+
+### Response Structure Mismatch
+
+- **Detection:** The top-level keys or nesting of the response do not match the expected schema (e.g., expecting `{ candidates: [...] }` but receiving `{ data: { results: [...] } }`).
+- **Action:** Attempt to locate the relevant data by checking common wrapper patterns (`data`, `results`, `items`, `records`). If the data can be found, proceed and use it. If the structure is entirely unrecognizable, inform the user that the API response format may have changed and include the top-level keys you received.
+
+---
+
+## 5. Bulk Grade Partial Failures
+
+When using `people-bulk-grade` (or similar bulk endpoints), some candidates in the batch may succeed while others fail. Handle this gracefully.
+
+### How to Handle
+
+1. **Always present the successful results first.** Do not let failures in some candidates block the user from seeing the candidates that were graded successfully.
+
+2. **Group and report failures separately.** After showing successful results, list the failed candidates with:
+   - The candidate identifier (name or ID)
+   - The error message or reason for failure
+   - Whether the error is retryable
+
+3. **Offer to retry failed candidates.** If the errors are transient (5xx, timeout), offer to retry just the failed subset. Do NOT re-submit the entire batch -- only the failed items.
+
+### Example Output Format
+
+```
+Successfully graded 8 of 10 candidates:
+
+| Candidate | Grade | Score |
+|---|---|---|
+| Jane Smith | A | 92 |
+| ... | ... | ... |
+
+2 candidates could not be graded:
+- John Doe: 500 Internal Server Error (retryable)
+- Alex Park: 422 Invalid candidate ID "xyz-000" (not retryable -- ID may be incorrect)
+
+Would you like me to retry the 1 retryable failure?
+```
+
+### Important Rules
+
+- Never silently drop failed candidates from the results.
+- Never report the entire batch as failed if any candidates succeeded.
+- If ALL candidates fail with the same error, report it as a single issue rather than repeating the same error N times.
+
+---
+
+## 6. Location 422 Errors
+
+This is the **single most common error** when working with the Mira API. The API requires full location names and will reject abbreviations with a 422 status.
+
+### The Rule
+
+Always use **full, unabbreviated location names** in every API call that accepts a location parameter.
+
+### Common Mistakes and Corrections
+
+| Wrong (will cause 422) | Correct |
+|---|---|
+| `US` | `United States` |
+| `USA` | `United States` |
+| `UK` | `United Kingdom` |
+| `CA` (state) | `California` |
+| `CA` (country) | `Canada` |
+| `NY` | `New York` |
+| `SF` | `San Francisco` |
+| `LA` | `Los Angeles` |
+| `DC` | `Washington, D.C.` |
+| `TX` | `Texas` |
+| `MA` | `Massachusetts` |
+| `WA` | `Washington` |
+| `IL` | `Illinois` |
+| `CO` | `Colorado` |
+| `GA` | `Georgia` |
+| `UAE` | `United Arab Emirates` |
+| `KSA` | `Saudi Arabia` |
+
+### What to Do When You Get a Location 422
+
+1. Read the error message -- it usually names the offending field and value.
+2. Replace the abbreviated location with its full name.
+3. If the user said something like "candidates in CA," clarify whether they mean California (US state) or Canada (country) before retrying.
+4. Retry the request with the corrected location.
+
+### Proactive Prevention
+
+When the user provides a location using an abbreviation, expand it to the full name BEFORE making the API call. Do not wait for the 422 to tell you it is wrong.
+
+---
+
+## 7. Rate Limiting Strategy
+
+When you receive a **429 Too Many Requests** response, follow this procedure exactly.
+
+### Step-by-Step
+
+1. **Check the `Retry-After` header.** If present, it contains the number of seconds to wait. Wait exactly that long before retrying.
+
+2. **If no `Retry-After` header is present**, use exponential backoff:
+   - 1st retry: wait 2 seconds
+   - 2nd retry: wait 4 seconds
+   - 3rd retry: wait 8 seconds
+   - Stop after 3 retries.
+
+3. **Do NOT attempt to parallelize requests to work around rate limits.** This will make the problem worse.
+
+4. **If multiple API calls are needed** (e.g., grading 50 candidates), space them out by at least 1 second between calls to avoid hitting the limit in the first place.
+
+5. **If rate limiting persists after 3 retries**, inform the user that the API rate limit has been reached and suggest waiting a few minutes before trying again.
+
+### What NOT to Do
+
+- Do not retry immediately without waiting.
+- Do not increase the request volume.
+- Do not make concurrent requests to "get ahead" of the limit.
+- Do not treat 429 as a permanent failure -- it is always temporary.
+
+---
+
+## 8. Escalation Path
+
+Stop retrying and inform the user when any of the following conditions are met.
+
+### When to Stop
+
+| Condition | Action |
+|---|---|
+| **3 consecutive retries of the same request have failed** | Stop retrying. Tell the user the operation failed and include the most recent error message. |
+| **Authentication error (401 or 403)** | Stop immediately. Do not retry. Ask the user to verify credentials or permissions. |
+| **The same 422 error repeats after you have corrected the request** | Stop. Show the user the exact error message and the request you sent, so they can identify the issue. |
+| **The API returns a 404 for a known endpoint** | Stop. The API may have changed. Inform the user and suggest checking for API updates. |
+| **Network errors persist across multiple different request types** | Stop. The issue is likely environmental (network, DNS, firewall), not request-specific. Tell the user. |
+| **The response structure is unrecognizable and cannot be parsed** | Stop. Inform the user that the API response format may have changed and include the raw structure for diagnosis. |
+
+### How to Escalate
+
+When you stop retrying, always provide the user with:
+
+1. **What you were trying to do** -- the operation and its parameters.
+2. **What went wrong** -- the specific error code, message, or behavior.
+3. **How many times you retried** -- and over what timespan.
+4. **What the user can do next** -- check credentials, try later, contact Mira support, adjust their query, etc.
+
+Never leave the user with just "an error occurred." Always give them enough context to take the next step.
