@@ -226,18 +226,28 @@ Filter by the candidate's management/seniority level.
 
 | Value | Description |
 |---|---|
-| `"Individual Contributor"` | IC roles with no direct reports |
+| `"Specialist"` | Individual contributors, specialists, and standard roles |
+| `"Senior"` | Senior-level ICs (Senior Engineer, Senior Analyst, etc.) |
 | `"Manager"` | First-line managers, team leads with direct reports |
 | `"Director"` | Directors, senior directors |
-| `"VP"` | Vice presidents, SVPs |
-| `"C-Suite"` | CTO, CEO, CFO, CIO, CPO, etc. |
-| `"Owner"` | Founders, co-founders, business owners |
+| `"Head"` | Head of department (Head of Engineering, Head of Product, etc.) |
+| `"President/Vice President"` | VPs, SVPs, EVPs, Presidents |
+| `"Vice President"` | Vice President (alternative to President/Vice President) |
+| `"C-Level"` | CTO, CEO, CFO, CIO, CPO, etc. |
+| `"Founder"` | Founders, co-founders |
+| `"Owner"` | Business owners |
+| `"Partner"` | Partners (law firms, consulting, VC, etc.) |
+| `"Intern"` | Interns and trainees |
 
-**There is NO "Junior" or "Entry-Level" enum value.** To find junior candidates, use `management_level: "Individual Contributor"` combined with `max_experience_months: 36` (or an appropriate low range).
-
-**There is NO "Senior" or "Staff" enum value.** Senior ICs are still `"Individual Contributor"`. Distinguish them by experience range:
-- Senior IC: `management_level: "Individual Contributor"`, `min_experience_months: 60`
-- Staff/Principal IC: `management_level: "Individual Contributor"`, `min_experience_months: 120`
+**Mapping from user intent:**
+- "junior" / "entry level" → `"Specialist"` combined with `max_experience_months: 36`
+- "senior engineer" → `"Senior"`
+- "manager" / "team lead" → `"Manager"`
+- "director" → `"Director"`
+- "VP" / "vice president" → `"President/Vice President"`
+- "C-level" / "executive" → `"C-Level"`
+- "founder" / "co-founder" → `"Founder"`
+- "intern" → `"Intern"`
 
 ---
 
@@ -258,7 +268,7 @@ Filter by the candidate's current employer. Use the company's common name.
 | Apple | `"Apple"` |
 | FAANG engineers | Run 5 separate searches: `"Google"`, `"Meta"`, `"Apple"`, `"Amazon"`, `"Netflix"` |
 
-**Note:** This filters on current employer only. To find ex-employees of a company, search by relevant title/skills and then use `people-lookup` to check `work_history` for past employers.
+**Note:** This filters on current employer only. To find ex-employees of a company, search by relevant title/skills and then use `people-lookup` to check `experience` for past employers.
 
 ### company_size
 

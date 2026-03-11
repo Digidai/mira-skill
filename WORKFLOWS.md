@@ -10,7 +10,7 @@ This file contains all search, sourcing, and grading workflows, plus the Paramet
 
 ### Steps
 
-1. **Verify API credentials.** Check that the OpenJobsAI API key is configured. If not, read `TROUBLESHOOTING.md` and walk the user through setup.
+1. **Verify API credentials.** Check that the Mira API key is configured (`MIRA_KEY` environment variable or `~/.config/mira/api_key`). If not, read `TROUBLESHOOTING.md` and walk the user through setup.
 2. **Explain capabilities.** Briefly tell the user what Mira can do:
    - **Search** for candidates by title, skills, location, experience, company, and more.
    - **Grade** candidates against a job description (by LinkedIn URL or pasted CV text).
@@ -48,9 +48,9 @@ This file contains all search, sourcing, and grading workflows, plus the Paramet
 
 1. Run `people-fast-search` with the user's criteria (same as Workflow 1, steps 1-3).
 2. Collect the LinkedIn URLs from the search results.
-3. Run `people-bulk-grade` with those URLs and the job description.
+3. Run `people-bulk-grade` with those URLs and the job description (the field is `jd`, not `job_description`).
    - If the user did not provide a JD, ask for one before grading. A JD is required for meaningful scoring.
-4. Sort results by rating (highest first) and display using the **Grading Display Format** from `SKILL.md`.
+4. Sort results by `total_score.rating` (highest first, scale is 0-100) and display using the **Grading Display Format** from `SKILL.md`.
 
 ---
 
@@ -91,8 +91,8 @@ This matches the decision tree in `SKILL.md` exactly: CV text goes to `people-gr
 
 ### Single Lookup
 
-1. Use `people-lookup` with the candidate's LinkedIn URL or email.
-2. Present the full profile: experience, skills, education, certifications, languages.
+1. Use `people-lookup` with the candidate's LinkedIn URL (pass as `linkedin_urls` array, e.g., `{"linkedin_urls": ["https://..."]}`).
+2. Extract the profile from `data.results[0]`. Present the full profile: experience, skills, education, certifications, languages. Note: current company is in the `experience` array entry where `is_current: true`, not a top-level field.
 
 ### Comparison
 
@@ -140,12 +140,13 @@ This is the default pattern for all candidate searches. Workflows 1 and 2 should
 
 ### Steps
 
-1. **Look up the reference profile.** Use `people-lookup` with the provided LinkedIn URL to retrieve the full profile.
+1. **Look up the reference profile.** Use `people-lookup` with the provided LinkedIn URL (pass as `linkedin_urls` array). Extract the profile from `data.results[0]`.
 2. **Extract key attributes** from the profile:
    - **Skills:** Take the top 3-5 most relevant skills from the profile.
-   - **Experience level:** Note the `experience_months` value; use a range of +/- 24 months.
-   - **Location:** Note `country`, `state`, and `city`.
-   - **Title/role:** Note the `active_title`.
+   - **Experience level:** Note the `total_experience_duration_months` value; use a range of +/- 24 months.
+   - **Location:** Note `address.country`, `address.state`, and `address.city`.
+   - **Title/role:** Note the `active_experience_title`.
+   - **Current company:** Find the entry in `experience` where `is_current: true` and read its `company_name`.
    - **Level:** Infer seniority from the title (e.g., "Senior", "Staff", "Lead", "Principal").
 3. **Search for similar candidates.** Use `people-fast-search` with the extracted attributes as filters:
    - Set `title` to the reference person's role type (e.g., "Software Engineer").
@@ -160,7 +161,7 @@ This is the default pattern for all candidate searches. Workflows 1 and 2 should
 
 User says: "Find me someone like linkedin.com/in/janepark for a replacement hire."
 
-1. `people-lookup` on Jane Park → Staff Engineer, 9 yrs exp, San Francisco, skills: Rust, Go, distributed systems, Kubernetes.
+1. `people-lookup` on Jane Park (pass `{"linkedin_urls": ["https://linkedin.com/in/janepark"]}`) → `data.results[0]`: `active_experience_title` = "Staff Engineer", `total_experience_duration_months` = 108, `address.city` = "San Francisco", skills: Rust, Go, distributed systems, Kubernetes.
 2. Extract: title = "Engineer", skills = ["Rust", "Kubernetes"], experience = 84-132 months, state = "California".
 3. `people-fast-search` with those filters.
 4. Present similar candidates.
@@ -175,10 +176,10 @@ User says: "Find me someone like linkedin.com/in/janepark for a replacement hire
 
 1. **Search for employees.** Use `people-fast-search` with the `company_name` filter set to the target company.
    - Optionally add a `title` filter if the user is interested in a specific function (e.g., "engineers at Stripe").
-2. **Get workforce statistics.** Use `people-stats` with the `company_name` filter and `group_by` set to relevant dimensions:
-   - `group_by: "role"` — breakdown by function (engineering, product, sales, etc.).
-   - `group_by: "level"` — breakdown by seniority (junior, mid, senior, lead, etc.).
-   - `group_by: "location"` — breakdown by geography.
+2. **Get workforce statistics.** Use `people-stats` with the `company_name` filter and `group_by` set to relevant dimensions (note: `group_by` takes an **array**):
+   - `group_by: ["role"]` — breakdown by function (engineering, product, sales, etc.).
+   - `group_by: ["level"]` — breakdown by seniority (junior, mid, senior, lead, etc.).
+   - `group_by: ["location"]` — breakdown by geography.
 3. **Present the org overview.** Combine the search results and statistics into a summary:
    - Total employee count in the database.
    - Distribution by role/function.
@@ -256,7 +257,7 @@ Refer to the **Experience Range Translation** table in `SKILL.md` for the full s
 |---|---|
 | "lead engineer" | Set `title: "Senior Engineer"` or `title: "Staff Engineer"`. Alternatively use experience filters: `min_experience_months: 72, max_experience_months: 180`. |
 | "FAANG engineers" | Search each company separately with `company_name` filter: `"Google"`, `"Meta"`, `"Apple"`, `"Amazon"`, `"Netflix"`. Combine the results from all five searches. |
-| "no job hoppers" | Not directly filterable via the API. After retrieving results, review `work_history` from `people-lookup` and note in the output if a candidate's average tenure is less than 2 years. Flag these candidates accordingly. |
+| "no job hoppers" | Not directly filterable via the API. After retrieving results, review `experience` from `people-lookup` and note in the output if a candidate's average tenure is less than 2 years. Flag these candidates accordingly. |
 | "currently employed" | `is_working: true` |
 | "open to work" / "not currently employed" | `is_working: false` |
 
@@ -266,7 +267,7 @@ Refer to the **Experience Range Translation** table in `SKILL.md` for the full s
 |---|---|
 | "engineers at Google" | `company_name: "Google", title: "Engineer"` |
 | "FAANG engineers" | Run 5 separate searches with `company_name` set to each of: `"Google"`, `"Meta"`, `"Apple"`, `"Amazon"`, `"Netflix"`. Combine and deduplicate. |
-| "ex-Stripe" | Not directly filterable by past employers. Search with `title` and `skills` relevant to the role, then use `people-lookup` on results to check `work_history` for Stripe. |
+| "ex-Stripe" | Not directly filterable by past employers. Search with `title` and `skills` relevant to the role, then use `people-lookup` on results to check `experience` for Stripe. |
 
 ### Combining Filters
 

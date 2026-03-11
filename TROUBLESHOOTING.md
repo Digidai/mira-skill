@@ -43,7 +43,7 @@ These errors occur before any HTTP status code is received.
 
 ## 3. Empty Results Troubleshooting
 
-When a search or list call returns zero results (`[]` or an empty `candidates` array), do NOT immediately tell the user "no results found." First consider these common causes and attempt fixes.
+When a search or list call returns zero results (an empty `data` array), do NOT immediately tell the user "no results found." First consider these common causes and attempt fixes.
 
 ### Common Causes and Fixes
 
@@ -81,7 +81,7 @@ Sometimes the API returns a 2xx status but the response body is unexpected.
 
 ### Response Structure Mismatch
 
-- **Detection:** The top-level keys or nesting of the response do not match the expected schema (e.g., expecting `{ candidates: [...] }` but receiving `{ data: { results: [...] } }`).
+- **Detection:** The top-level keys or nesting of the response do not match the expected schema (e.g., missing the `{ "code": 200, "message": "ok", "data": ... }` wrapper).
 - **Action:** Attempt to locate the relevant data by checking common wrapper patterns (`data`, `results`, `items`, `records`). If the data can be found, proceed and use it. If the structure is entirely unrecognizable, inform the user that the API response format may have changed and include the top-level keys you received.
 
 ---

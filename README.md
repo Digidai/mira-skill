@@ -47,17 +47,19 @@ curl -sL https://github.com/Digidai/mira-skill/archive/refs/heads/master.tar.gz 
 
 ### Setup API Key
 
-Mira requires an OpenJobsAI API key. Set it as an environment variable:
+Mira requires an API key. Set it as an environment variable:
 
 ```bash
-export OPENJOBS_API_KEY="your-api-key-here"
+export MIRA_KEY="your-api-key-here"
 ```
 
 Or add it to your shell profile (`~/.zshrc`, `~/.bashrc`):
 
 ```bash
-echo 'export OPENJOBS_API_KEY="your-api-key-here"' >> ~/.zshrc
+echo 'export MIRA_KEY="your-api-key-here"' >> ~/.zshrc
 ```
+
+Alternatively, store the key in the config file at `~/.config/mira/api_key`.
 
 On first use, if the key is not found, Mira will walk you through the setup process.
 
@@ -211,10 +213,10 @@ metadata:
     emoji: "\U0001F50D"
     always: false
     homepage: https://www.openjobs-ai.com
-    primaryEnv: OPENJOBS_API_KEY
+    primaryEnv: MIRA_KEY
     requires:
       env:
-        - OPENJOBS_API_KEY
+        - MIRA_KEY
     os:
       - macos
       - linux
@@ -291,7 +293,7 @@ This skill follows [Anthropic's Skill design best practices](https://docs.anthro
 ## Requirements
 
 - [Claude Code](https://claude.ai/claude-code) CLI (or compatible platform: Codex, Cursor, Gemini CLI)
-- OpenJobsAI API key — set as `OPENJOBS_API_KEY` environment variable
+- Mira API key — set as `MIRA_KEY` environment variable or stored in `~/.config/mira/api_key`
 - No additional binary dependencies
 
 ---

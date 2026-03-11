@@ -16,10 +16,10 @@ metadata:
     emoji: "\U0001F50D"
     always: false
     homepage: https://www.openjobs-ai.com
-    primaryEnv: OPENJOBS_API_KEY
+    primaryEnv: MIRA_KEY
     requires:
       env:
-        - OPENJOBS_API_KEY
+        - MIRA_KEY
     os:
       - macos
       - linux
@@ -69,7 +69,7 @@ Work through this tree top-to-bottom on every user message that triggers Mira.
 
 If this is the **first Mira operation in the current conversation**:
 
-1. Verify that the OpenJobsAI API key is configured (check environment variable or config file).
+1. Verify that the Mira API key is configured (check `MIRA_KEY` environment variable or `~/.config/mira/api_key` config file).
 2. If credentials are missing or expired, walk the user through setup before proceeding.
 3. Continue to the relevant branch below.
 
@@ -135,6 +135,8 @@ Example:
 **Jane Park** — Staff Engineer @ Stripe, 9 yrs exp, San Francisco · Rust + distributed systems
 ```
 
+**Extracting the current company:** There is no top-level `company_name` field in the API response. To get the current company, find the entry in the `experience` array where `is_current: true` and read its `company_name`. Location is in the `address` object (e.g., `address.city`). Current title is in `active_experience_title`. Total experience is in `total_experience_duration_months`.
+
 When displaying grading results, use this format:
 
 ```
@@ -146,6 +148,8 @@ Example:
 ```
 **Jane Park** — Score: 92/100 | Staff Engineer @ Stripe · Deep Rust expertise, system design leadership
 ```
+
+Grading scores range from **0 to 100** (not 1-10). The score is in `total_score.rating` and the explanation is in `total_score.description`.
 
 ---
 

@@ -2,7 +2,19 @@
 
 Base URL: `https://mira-api.openjobs-ai.com/v1/`
 
-All endpoints accept JSON request bodies and return JSON responses. Authentication is required via an `Authorization: Bearer <token>` header on every request.
+All endpoints accept JSON request bodies and return JSON responses. Authentication is required via an `Authorization: Bearer $MIRA_KEY` header on every request.
+
+All successful responses are wrapped in a standard envelope:
+
+```json
+{
+  "code": 200,
+  "message": "ok",
+  "data": { ... }
+}
+```
+
+The `data` field contains the endpoint-specific payload described in each section below.
 
 ---
 
@@ -10,16 +22,18 @@ All endpoints accept JSON request bodies and return JSON responses. Authenticati
 
 | Endpoint | Method | Path | Description |
 |---|---|---|---|
-| **people-lookup** | POST | `/people-lookup` | Retrieve a detailed profile for a single person by LinkedIn URL or email |
+| **people-lookup** | POST | `/people-lookup` | Retrieve detailed profiles for one or more people by LinkedIn URL |
 | **people-compare** | POST | `/people-compare` | Compare two or more candidates side-by-side |
 | **people-bulk-grade** | POST | `/people-bulk-grade` | Grade a batch of candidates against a job description |
+| **people-grade** | POST | `/people-grade` | Grade a single CV/resume text against a job description |
 | **people-fast-search** | POST | `/people-fast-search` | Search for candidates matching specific filters |
+| **people-stats** | POST | `/people-stats` | Get aggregate statistics for a talent pool |
 
 ---
 
 ## people-lookup
 
-Retrieve a detailed profile for a single person by LinkedIn URL or email.
+Retrieve detailed profiles for one or more people by LinkedIn URL. Takes an array of URLs and returns structured results.
 
 **URL:** `POST https://mira-api.openjobs-ai.com/v1/people-lookup`
 
@@ -27,105 +41,156 @@ Retrieve a detailed profile for a single person by LinkedIn URL or email.
 
 ```json
 {
-  "linkedin_url": "https://www.linkedin.com/in/johndoe",
-  "email": null
+  "linkedin_urls": [
+    "https://www.linkedin.com/in/johndoe"
+  ]
 }
 ```
 
-You may provide `linkedin_url`, `email`, or both. At least one identifier is required.
+The `linkedin_urls` field is an **array** (not a single string). You may look up multiple profiles in one request.
 
 ### Response Example
 
 ```json
 {
-  "full_name": "John Doe",
-  "headline": "Senior Software Engineer at Acme Corp",
-  "linkedin_url": "https://www.linkedin.com/in/johndoe",
-  "country": "United States",
-  "state": "California",
-  "city": "San Francisco",
-  "experience_months": 96,
-  "is_working": true,
-  "skills": [
-    "Python",
-    "TypeScript",
-    "React",
-    "PostgreSQL",
-    "AWS",
-    "Docker",
-    "Kubernetes"
-  ],
-  "active_title": "Senior Software Engineer",
-  "company_name": "Acme Corp",
-  "work_history": [
-    {
-      "title": "Senior Software Engineer",
-      "company": "Acme Corp",
-      "start_date": "2022-03",
-      "end_date": null,
-      "duration_months": 48
-    },
-    {
-      "title": "Software Engineer",
-      "company": "Globex Inc",
-      "start_date": "2018-06",
-      "end_date": "2022-02",
-      "duration_months": 44
-    }
-  ],
-  "education": [
-    {
-      "degree": "Master of Science",
-      "institution": "Stanford University",
-      "major": "Computer Science",
-      "gpa": 3.9
-    },
-    {
-      "degree": "Bachelor of Science",
-      "institution": "University of California, Berkeley",
-      "major": "Computer Science",
-      "gpa": 3.7
-    }
-  ],
-  "certifications": [
-    "AWS Solutions Architect – Associate",
-    "Certified Kubernetes Administrator (CKA)"
-  ],
-  "languages": [
-    "English",
-    "Spanish"
-  ]
+  "code": 200,
+  "message": "ok",
+  "data": {
+    "total": 1,
+    "found": 1,
+    "not_found": [],
+    "results": [
+      {
+        "linkedin_url": "https://www.linkedin.com/in/johndoe",
+        "full_name": "John Doe",
+        "first_name": "John",
+        "last_name": "Doe",
+        "headline": "Senior Software Engineer at Acme Corp",
+        "summary": "Experienced software engineer specializing in backend systems and cloud infrastructure.",
+        "address": {
+          "city": "San Francisco",
+          "state": "California",
+          "country": "United States",
+          "full": "San Francisco, California, United States"
+        },
+        "age": null,
+        "total_experience_duration_months": 96,
+        "is_working": true,
+        "active_experience_title": "Senior Software Engineer",
+        "active_experience_description": "Building scalable backend services for Acme Corp's platform.",
+        "active_experience_department": "Engineering",
+        "active_experience_management_level": "Individual Contributor",
+        "is_decision_maker": false,
+        "skills": [
+          "Python",
+          "TypeScript",
+          "React",
+          "PostgreSQL",
+          "AWS",
+          "Docker",
+          "Kubernetes"
+        ],
+        "experience": [
+          {
+            "title": "Senior Software Engineer",
+            "company_name": "Acme Corp",
+            "start_date": "2022-03",
+            "end_date": null,
+            "is_current": true,
+            "duration_months": 48
+          },
+          {
+            "title": "Software Engineer",
+            "company_name": "Globex Inc",
+            "start_date": "2018-06",
+            "end_date": "2022-02",
+            "is_current": false,
+            "duration_months": 44
+          }
+        ],
+        "education": [
+          {
+            "degree": "Master of Science",
+            "institution": "Stanford University",
+            "major": "Computer Science",
+            "gpa": 3.9
+          },
+          {
+            "degree": "Bachelor of Science",
+            "institution": "University of California, Berkeley",
+            "major": "Computer Science",
+            "gpa": 3.7
+          }
+        ],
+        "certifications": [
+          "AWS Solutions Architect - Associate",
+          "Certified Kubernetes Administrator (CKA)"
+        ],
+        "awards": [],
+        "courses": [],
+        "publications": [],
+        "patents": [],
+        "languages_nested": [
+          "English",
+          "Spanish"
+        ]
+      }
+    ]
+  }
 }
 ```
 
 ### Field Reference
 
+The `data` object contains:
+
 | Field | Type | Description |
 |---|---|---|
-| `full_name` | string | Candidate's full name |
-| `headline` | string | LinkedIn headline |
+| `total` | integer | Number of URLs requested |
+| `found` | integer | Number of profiles successfully found |
+| `not_found` | string[] | LinkedIn URLs that could not be found |
+| `results` | object[] | Array of profile objects |
+
+Each object in the `results` array contains:
+
+| Field | Type | Description |
+|---|---|---|
 | `linkedin_url` | string | LinkedIn profile URL |
-| `country` | string | Country of residence |
-| `state` | string | State or region |
-| `city` | string | City of residence |
-| `experience_months` | integer | Total professional experience in months |
+| `full_name` | string | Candidate's full name |
+| `first_name` | string | First name |
+| `last_name` | string | Last name |
+| `headline` | string | LinkedIn headline |
+| `summary` | string | Profile summary / about section |
+| `address` | object | Location object with `city`, `state`, `country`, and `full` |
+| `age` | integer or null | Age (often null) |
+| `total_experience_duration_months` | integer | Total professional experience in months |
 | `is_working` | boolean | Whether the candidate is currently employed |
+| `active_experience_title` | string | Current job title |
+| `active_experience_description` | string | Description of current role |
+| `active_experience_department` | string | Department of current role |
+| `active_experience_management_level` | string | Management level of current role |
+| `is_decision_maker` | boolean | Whether the candidate is a decision maker |
 | `skills` | string[] | List of professional skills |
-| `active_title` | string | Current job title |
-| `company_name` | string | Current employer |
-| `work_history` | object[] | Employment history (see below) |
+| `experience` | object[] | Employment history (see below) |
 | `education` | object[] | Education records (see below) |
 | `certifications` | string[] | Professional certifications |
-| `languages` | string[] | Spoken languages |
+| `awards` | string[] | Awards received |
+| `courses` | string[] | Courses completed |
+| `publications` | string[] | Publications authored |
+| `patents` | string[] | Patents held |
+| `languages_nested` | string[] | Spoken languages |
 
-**work_history[] object:**
+**Note:** There is no top-level `company_name` field. To get the current company, find the entry in `experience` where `is_current: true` and read its `company_name`.
+
+**experience[] object:**
 
 | Field | Type | Description |
 |---|---|---|
 | `title` | string | Job title |
-| `company` | string | Company name |
+| `company_name` | string | Company name |
 | `start_date` | string | Start date (YYYY-MM format) |
 | `end_date` | string or null | End date (null if current position) |
+| `is_current` | boolean | Whether this is the current position |
 | `duration_months` | integer | Duration of the role in months |
 
 **education[] object:**
@@ -160,77 +225,135 @@ Compare two or more candidates side-by-side. Useful for shortlist evaluations.
 
 ```json
 {
-  "candidates": [
-    {
-      "full_name": "John Doe",
-      "linkedin_url": "https://www.linkedin.com/in/johndoe",
-      "active_title": "Senior Software Engineer",
-      "company_name": "Acme Corp",
-      "highest_education": {
-        "degree": "Master of Science",
-        "institution": "Stanford University"
+  "code": 200,
+  "message": "ok",
+  "data": {
+    "total_requested": 2,
+    "total_found": 2,
+    "not_found": [],
+    "comparisons": [
+      {
+        "linkedin_url": "https://www.linkedin.com/in/johndoe",
+        "full_name": "John Doe",
+        "first_name": "John",
+        "last_name": "Doe",
+        "headline": "Senior Software Engineer at Acme Corp",
+        "summary": "Experienced software engineer specializing in backend systems.",
+        "address": {
+          "city": "San Francisco",
+          "state": "California",
+          "country": "United States",
+          "full": "San Francisco, California, United States"
+        },
+        "active_experience_title": "Senior Software Engineer",
+        "total_experience_duration_months": 96,
+        "is_working": true,
+        "skills": [
+          "Python",
+          "TypeScript",
+          "React",
+          "PostgreSQL",
+          "AWS",
+          "Docker",
+          "Kubernetes"
+        ],
+        "experience": [
+          {
+            "title": "Senior Software Engineer",
+            "company_name": "Acme Corp",
+            "start_date": "2022-03",
+            "end_date": null,
+            "is_current": true,
+            "duration_months": 48
+          }
+        ],
+        "education": [
+          {
+            "degree": "Master of Science",
+            "institution": "Stanford University",
+            "major": "Computer Science",
+            "gpa": 3.9
+          }
+        ],
+        "languages_nested": [
+          "English",
+          "Spanish"
+        ]
       },
-      "skills": [
-        "Python",
-        "TypeScript",
-        "React",
-        "PostgreSQL",
-        "AWS",
-        "Docker",
-        "Kubernetes"
-      ],
-      "languages": [
-        "English",
-        "Spanish"
-      ]
-    },
-    {
-      "full_name": "Jane Smith",
-      "linkedin_url": "https://www.linkedin.com/in/janesmith",
-      "active_title": "Engineering Manager",
-      "company_name": "Initech",
-      "highest_education": {
-        "degree": "Bachelor of Science",
-        "institution": "MIT"
-      },
-      "skills": [
-        "Java",
-        "Go",
-        "System Design",
-        "Team Leadership",
-        "Agile",
-        "AWS",
-        "Terraform"
-      ],
-      "languages": [
-        "English",
-        "Mandarin",
-        "French"
-      ]
-    }
-  ]
+      {
+        "linkedin_url": "https://www.linkedin.com/in/janesmith",
+        "full_name": "Jane Smith",
+        "first_name": "Jane",
+        "last_name": "Smith",
+        "headline": "Engineering Manager at Initech",
+        "summary": "Engineering leader with a focus on distributed systems.",
+        "address": {
+          "city": "New York",
+          "state": "New York",
+          "country": "United States",
+          "full": "New York, New York, United States"
+        },
+        "active_experience_title": "Engineering Manager",
+        "total_experience_duration_months": 120,
+        "is_working": true,
+        "skills": [
+          "Java",
+          "Go",
+          "System Design",
+          "Team Leadership",
+          "Agile",
+          "AWS",
+          "Terraform"
+        ],
+        "experience": [
+          {
+            "title": "Engineering Manager",
+            "company_name": "Initech",
+            "start_date": "2021-01",
+            "end_date": null,
+            "is_current": true,
+            "duration_months": 62
+          }
+        ],
+        "education": [
+          {
+            "degree": "Bachelor of Science",
+            "institution": "MIT",
+            "major": "Computer Science",
+            "gpa": null
+          }
+        ],
+        "languages_nested": [
+          "English",
+          "Mandarin",
+          "French"
+        ]
+      }
+    ]
+  }
 }
 ```
 
 ### Field Reference
 
-Each object in the `candidates` array contains:
+The `data` object contains:
 
 | Field | Type | Description |
 |---|---|---|
-| `full_name` | string | Candidate's full name |
-| `linkedin_url` | string | LinkedIn profile URL |
-| `active_title` | string | Current job title |
-| `company_name` | string | Current employer |
-| `highest_education` | object | Highest degree obtained (`degree` and `institution`) |
-| `skills` | string[] | List of professional skills |
-| `languages` | string[] | Spoken languages |
+| `total_requested` | integer | Number of candidates requested |
+| `total_found` | integer | Number of candidates successfully found |
+| `not_found` | string[] | LinkedIn URLs that could not be found |
+| `comparisons` | object[] | Array of candidate profile objects |
+
+Each object in the `comparisons` array has the same structure as a `people-lookup` result (see the people-lookup field reference above). Key fields: `full_name`, `linkedin_url`, `active_experience_title`, `address`, `total_experience_duration_months`, `skills`, `experience`, `education`, `languages_nested`.
+
+**Note:** There is no top-level `company_name` field. To get a candidate's current company, find the entry in `experience` where `is_current: true` and read its `company_name`.
 
 ---
 
 ## people-bulk-grade
 
-Grade a batch of candidates against a job description. Each candidate receives a rating and a short description of their fit.
+Grade a batch of candidates against a job description. Each candidate receives a score (0-100) and a description of their fit.
 
 **URL:** `POST https://mira-api.openjobs-ai.com/v1/people-bulk-grade`
 
@@ -238,7 +361,7 @@ Grade a batch of candidates against a job description. Each candidate receives a
 
 ```json
 {
-  "job_description": "We are looking for a Senior Backend Engineer with 5+ years of experience in Python and cloud infrastructure (AWS or GCP). Must have strong SQL skills and experience with microservices.",
+  "jd": "We are looking for a Senior Backend Engineer with 5+ years of experience in Python and cloud infrastructure (AWS or GCP). Must have strong SQL skills and experience with microservices.",
   "linkedin_urls": [
     "https://www.linkedin.com/in/johndoe",
     "https://www.linkedin.com/in/janesmith",
@@ -247,47 +370,110 @@ Grade a batch of candidates against a job description. Each candidate receives a
 }
 ```
 
+**Note:** The job description field is `jd` (not `job_description`).
+
 ### Response Example
 
 ```json
 {
-  "results": [
-    {
-      "linkedin_url": "https://www.linkedin.com/in/johndoe",
-      "full_name": "John Doe",
-      "rating": 9,
-      "description": "Strong match. 8 years of Python experience, AWS certified, extensive work with PostgreSQL and microservices at Acme Corp.",
-      "error": null
-    },
-    {
-      "linkedin_url": "https://www.linkedin.com/in/janesmith",
-      "full_name": "Jane Smith",
-      "rating": 6,
-      "description": "Partial match. Engineering management background with solid AWS and system design skills, but primary languages are Java and Go rather than Python.",
-      "error": null
-    },
-    {
-      "linkedin_url": "https://www.linkedin.com/in/alexunknown",
-      "full_name": null,
-      "rating": null,
-      "description": null,
-      "error": "Profile not found in database"
-    }
-  ]
+  "code": 200,
+  "message": "ok",
+  "data": {
+    "jd_preview": "We are looking for a Senior Backend Engineer with 5+ years of experience in Python and cloud infrastructure...",
+    "total_requested": 3,
+    "total_graded": 2,
+    "total_failed": 1,
+    "not_found": [
+      "https://www.linkedin.com/in/alexunknown"
+    ],
+    "rankings": [
+      {
+        "linkedin_url": "https://www.linkedin.com/in/johndoe",
+        "total_score": {
+          "rating": 92,
+          "description": "Strong match. 8 years of Python experience, AWS certified, extensive work with PostgreSQL and microservices at Acme Corp."
+        },
+        "error": null
+      },
+      {
+        "linkedin_url": "https://www.linkedin.com/in/janesmith",
+        "total_score": {
+          "rating": 61,
+          "description": "Partial match. Engineering management background with solid AWS and system design skills, but primary languages are Java and Go rather than Python."
+        },
+        "error": null
+      }
+    ]
+  }
 }
 ```
 
 ### Field Reference
 
-Each object in the `results` array contains:
+The `data` object contains:
+
+| Field | Type | Description |
+|---|---|---|
+| `jd_preview` | string | Truncated preview of the submitted job description |
+| `total_requested` | integer | Number of candidates submitted for grading |
+| `total_graded` | integer | Number of candidates successfully graded |
+| `total_failed` | integer | Number of candidates that could not be graded |
+| `not_found` | string[] | LinkedIn URLs that could not be found in the database |
+| `rankings` | object[] | Array of grading result objects |
+
+Each object in the `rankings` array contains:
 
 | Field | Type | Description |
 |---|---|---|
 | `linkedin_url` | string | The LinkedIn URL that was submitted |
-| `full_name` | string or null | Candidate's name (null on failure) |
-| `rating` | integer or null | Fit score from 1 (poor) to 10 (excellent), null on failure |
-| `description` | string or null | Brief explanation of the rating, null on failure |
+| `total_score` | object or null | Score object with `rating` and `description` (null on failure) |
+| `total_score.rating` | integer or null | Fit score from 0 (poor) to 100 (excellent) |
+| `total_score.description` | string or null | Brief explanation of the rating |
 | `error` | string or null | Error message if the profile could not be graded, otherwise null |
+
+---
+
+## people-grade
+
+Grade a single CV/resume text against a job description. Use this when you have the candidate's resume text rather than a LinkedIn URL.
+
+**URL:** `POST https://mira-api.openjobs-ai.com/v1/people-grade`
+
+### Request Example
+
+```json
+{
+  "cv": "John Doe\nSenior Software Engineer\n8 years experience in Python, AWS, PostgreSQL...",
+  "jd": "We are looking for a Senior Backend Engineer with 5+ years of experience in Python and cloud infrastructure."
+}
+```
+
+**Note:** The fields are `cv` (resume text) and `jd` (job description text).
+
+### Response Example
+
+```json
+{
+  "code": 200,
+  "message": "ok",
+  "data": {
+    "total_score": {
+      "rating": 89,
+      "description": "Strong match. Candidate has 8 years of Python experience with extensive AWS and PostgreSQL expertise. Cloud infrastructure skills align well with the role requirements."
+    }
+  }
+}
+```
+
+### Field Reference
+
+The `data` object contains:
+
+| Field | Type | Description |
+|---|---|---|
+| `total_score` | object | Score object with `rating` and `description` |
+| `total_score.rating` | integer | Fit score from 0 (poor) to 100 (excellent) |
+| `total_score.description` | string | Brief explanation of the rating |
 
 ---
 
@@ -297,7 +483,7 @@ Search for candidates matching specific filters such as job title, skills, locat
 
 **URL:** `POST https://mira-api.openjobs-ai.com/v1/people-fast-search`
 
-> **Note:** Returns up to 20 results per request. No pagination — to see more candidates, refine your filters.
+> **Note:** Returns up to 20 results per request. No pagination -- to see more candidates, refine your filters.
 
 ### Request Example
 
@@ -319,40 +505,135 @@ All filter fields are optional. Omit a field or set it to `null` to skip that fi
 
 ```json
 {
-  "total": 3,
-  "candidates": [
+  "code": 200,
+  "message": "ok",
+  "data": [
     {
-      "full_name": "John Doe",
       "linkedin_url": "https://www.linkedin.com/in/johndoe",
-      "active_title": "Senior Software Engineer",
-      "company_name": "Acme Corp",
-      "city": "San Francisco",
-      "state": "California",
-      "country": "United States",
-      "experience_months": 96,
-      "skills": ["Python", "TypeScript", "React", "PostgreSQL", "AWS"]
+      "full_name": "John Doe",
+      "first_name": "John",
+      "last_name": "Doe",
+      "headline": "Senior Software Engineer at Acme Corp",
+      "summary": "Experienced backend engineer focused on distributed systems.",
+      "address": {
+        "city": "San Francisco",
+        "state": "California",
+        "country": "United States",
+        "full": "San Francisco, California, United States"
+      },
+      "age": null,
+      "total_experience_duration_months": 96,
+      "is_working": true,
+      "active_experience_title": "Senior Software Engineer",
+      "active_experience_description": "Building scalable backend services.",
+      "active_experience_department": "Engineering",
+      "active_experience_management_level": "Individual Contributor",
+      "is_decision_maker": false,
+      "skills": ["Python", "TypeScript", "React", "PostgreSQL", "AWS"],
+      "experience": [
+        {
+          "title": "Senior Software Engineer",
+          "company_name": "Acme Corp",
+          "start_date": "2022-03",
+          "end_date": null,
+          "is_current": true,
+          "duration_months": 48
+        }
+      ],
+      "education": [
+        {
+          "degree": "Master of Science",
+          "institution": "Stanford University",
+          "major": "Computer Science",
+          "gpa": 3.9
+        }
+      ],
+      "awards": [],
+      "courses": [],
+      "certifications": [],
+      "publications": [],
+      "patents": [],
+      "languages_nested": ["English", "Spanish"]
     },
     {
-      "full_name": "Alice Johnson",
       "linkedin_url": "https://www.linkedin.com/in/alicejohnson",
-      "active_title": "Backend Engineer",
-      "company_name": "Widgets LLC",
-      "city": "Los Angeles",
-      "state": "California",
-      "country": "United States",
-      "experience_months": 72,
-      "skills": ["Python", "Django", "AWS", "Redis", "Kafka"]
+      "full_name": "Alice Johnson",
+      "first_name": "Alice",
+      "last_name": "Johnson",
+      "headline": "Backend Engineer at Widgets LLC",
+      "summary": "Backend engineer with expertise in Python and event-driven architectures.",
+      "address": {
+        "city": "Los Angeles",
+        "state": "California",
+        "country": "United States",
+        "full": "Los Angeles, California, United States"
+      },
+      "age": null,
+      "total_experience_duration_months": 72,
+      "is_working": true,
+      "active_experience_title": "Backend Engineer",
+      "active_experience_description": "Developing microservices and event pipelines.",
+      "active_experience_department": "Engineering",
+      "active_experience_management_level": "Individual Contributor",
+      "is_decision_maker": false,
+      "skills": ["Python", "Django", "AWS", "Redis", "Kafka"],
+      "experience": [
+        {
+          "title": "Backend Engineer",
+          "company_name": "Widgets LLC",
+          "start_date": "2020-01",
+          "end_date": null,
+          "is_current": true,
+          "duration_months": 74
+        }
+      ],
+      "education": [],
+      "awards": [],
+      "courses": [],
+      "certifications": [],
+      "publications": [],
+      "patents": [],
+      "languages_nested": ["English"]
     },
     {
-      "full_name": "Carlos Rivera",
       "linkedin_url": "https://www.linkedin.com/in/carlosrivera",
-      "active_title": "Staff Engineer",
-      "company_name": "NextGen AI",
-      "city": "San Jose",
-      "state": "California",
-      "country": "United States",
-      "experience_months": 108,
-      "skills": ["Python", "Go", "AWS", "Terraform", "gRPC"]
+      "full_name": "Carlos Rivera",
+      "first_name": "Carlos",
+      "last_name": "Rivera",
+      "headline": "Staff Engineer at NextGen AI",
+      "summary": "Staff engineer specializing in infrastructure and platform engineering.",
+      "address": {
+        "city": "San Jose",
+        "state": "California",
+        "country": "United States",
+        "full": "San Jose, California, United States"
+      },
+      "age": null,
+      "total_experience_duration_months": 108,
+      "is_working": true,
+      "active_experience_title": "Staff Engineer",
+      "active_experience_description": "Leading platform infrastructure initiatives.",
+      "active_experience_department": "Engineering",
+      "active_experience_management_level": "Individual Contributor",
+      "is_decision_maker": false,
+      "skills": ["Python", "Go", "AWS", "Terraform", "gRPC"],
+      "experience": [
+        {
+          "title": "Staff Engineer",
+          "company_name": "NextGen AI",
+          "start_date": "2019-06",
+          "end_date": null,
+          "is_current": true,
+          "duration_months": 81
+        }
+      ],
+      "education": [],
+      "awards": [],
+      "courses": [],
+      "certifications": [],
+      "publications": [],
+      "patents": [],
+      "languages_nested": ["English", "Spanish"]
     }
   ]
 }
@@ -373,12 +654,70 @@ All filter fields are optional. Omit a field or set it to `null` to skip that fi
 
 ### Response Fields
 
+The `data` field is an **array** of candidate objects. Each candidate object has the same structure as `people-lookup` results (see people-lookup field reference).
+
+Key fields per candidate: `linkedin_url`, `full_name`, `first_name`, `last_name`, `headline`, `summary`, `address` (object with `city`, `state`, `country`, `full`), `total_experience_duration_months`, `is_working`, `active_experience_title`, `active_experience_description`, `active_experience_department`, `active_experience_management_level`, `is_decision_maker`, `skills`, `experience` (array), `education` (array), `certifications`, `awards`, `courses`, `publications`, `patents`, `languages_nested`.
+
+**Note:** There is no top-level `company_name` field on candidates. To get the current company, find the entry in `experience` where `is_current: true` and read its `company_name`.
+
+---
+
+## people-stats
+
+Get aggregate statistics for a talent pool matching specific filters. Useful for market analysis, workforce composition, and talent supply insights.
+
+**URL:** `POST https://mira-api.openjobs-ai.com/v1/people-stats`
+
+### Request Example
+
+```json
+{
+  "title": "Software Engineer",
+  "country": "United States",
+  "group_by": ["state"]
+}
+```
+
+**Note:** The `group_by` field is an **array** of dimension strings (e.g., `["state"]`, `["state", "city"]`).
+
+### Response Example
+
+```json
+{
+  "code": 200,
+  "message": "ok",
+  "data": {
+    "total_matched": 10000,
+    "aggregations": {
+      "state": [
+        {
+          "key": "California",
+          "count": 6653415
+        },
+        {
+          "key": "New York",
+          "count": 3241022
+        },
+        {
+          "key": "Texas",
+          "count": 2105893
+        }
+      ]
+    }
+  }
+}
+```
+
+### Field Reference
+
+The `data` object contains:
+
 | Field | Type | Description |
 |---|---|---|
-| `total` | integer | Number of candidates returned |
-| `candidates` | object[] | Array of matching candidate summaries |
+| `total_matched` | integer | Total number of candidates matching the filters |
+| `aggregations` | object | Breakdown by each dimension in `group_by` |
 
-Each candidate object includes: `full_name`, `linkedin_url`, `active_title`, `company_name`, `city`, `state`, `country`, `experience_months`, and `skills`.
+Each key in `aggregations` corresponds to a `group_by` dimension and contains an array of `{ "key": string, "count": integer }` objects.
 
 ---
 
