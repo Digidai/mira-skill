@@ -51,7 +51,7 @@ When a search or list call returns zero results (an empty `data` array), do NOT 
 |---|---|---|
 | **Filters too restrictive** | Multiple filters were applied (e.g., location + title + skills + years of experience all at once). | Remove or relax one filter at a time, starting with the most restrictive. Re-run the query after each change to see if results appear. Report back to the user what filter combination yields results. |
 | **Location abbreviations used** | The location filter contains abbreviations like "US", "CA", "NY", "SF", "UK". | Replace with full names: "United States", "California", "New York", "San Francisco", "United Kingdom". See Section 6 for details. |
-| **Wrong field enum value** | A filter uses a value that is not in the API's allowed enum set (e.g., `seniority: "sr"` instead of `seniority: "senior"`). | Check the API reference for valid enum values for the field. Correct the value and retry. |
+| **Invalid enum value** | A filter uses a value that is not in the API's allowed enum set (e.g., invalid `management_level` or `industry`). The API does NOT return a 4xx error — it silently returns zero results. | Check `SEARCH_FIELDS.md` for valid enum values. Correct the value and retry. This is a common silent failure. |
 | **Typos in company or school names** | The company or school name does not exactly match what Mira has indexed. | Try a partial match or broader search term. For example, use "Google" instead of "Google LLC" or "Alphabet Inc." |
 | **Date range too narrow** | A date-based filter (e.g., last active) excludes most candidates. | Widen the date range or remove the date filter entirely. |
 
@@ -198,7 +198,41 @@ When you receive a **429 Too Many Requests** response, follow this procedure exa
 
 ---
 
-## 8. Escalation Path
+## 8. Known API Quirks
+
+These are confirmed behaviors discovered through testing. They are not bugs you can fix — document them so you handle them correctly.
+
+### Duplicate URL Deduplication
+
+`people-lookup`, `people-compare`, and `people-bulk-grade` all silently deduplicate URLs. If you pass the same URL twice:
+- The server processes it once
+- `data.total` (or `total_requested`) reflects the **deduplicated** count
+- This is not an error, but do not rely on array length matching your input count
+
+**Action:** Deduplicate URLs client-side before calling any endpoint. If the user provides duplicate URLs, remove them and note it.
+
+### people-stats 500 on Invalid group_by
+
+Passing an unsupported `group_by` value (e.g., `["role"]`, `["level"]`, `["location"]`) causes a **500 Internal Server Error** instead of a 400/422. This is a server-side bug.
+
+**Verified safe values:** `"state"`, `"country"`, `"city"`.
+
+**Action:** NEVER pass unverified `group_by` values. If you need a breakdown by role or seniority, use `people-fast-search` results and aggregate client-side instead.
+
+### Lenient Input Validation
+
+The API does NOT strictly validate several input fields:
+- **Bad LinkedIn URLs**: Non-LinkedIn URLs or malformed URLs do not cause errors — they appear in `not_found`.
+- **Invalid enum values**: Wrong `management_level`, `industry`, `function`, or `employment_type` values do not cause errors — they silently return zero results.
+- **Location abbreviations**: "US", "CA", "NY" etc. do not cause errors — they silently return zero results.
+
+**The only strict validation:** Empty or missing `jd` in grading endpoints correctly returns 422.
+
+**Action:** Always validate inputs client-side. Do not rely on the API to catch mistakes — most invalid inputs result in silent empty results rather than clear error messages.
+
+---
+
+## 9. Escalation Path
 
 Stop retrying and inform the user when any of the following conditions are met.
 

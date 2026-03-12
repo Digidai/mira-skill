@@ -49,6 +49,8 @@ Retrieve detailed profiles for one or more people by LinkedIn URL. Takes an arra
 
 The `linkedin_urls` field is an **array** (not a single string). You may look up multiple profiles in one request.
 
+**Deduplication:** The API silently deduplicates URLs. If you pass the same URL twice, `data.total` will reflect the deduplicated count (e.g., 1 instead of 2). This is not an error — plan for it when checking counts.
+
 ### Response Example
 
 ```json
@@ -370,7 +372,9 @@ Grade a batch of candidates against a job description. Each candidate receives a
 }
 ```
 
-**Note:** The job description field is `jd` (not `job_description`).
+**Note:** The job description field is `jd` (not `job_description`). An empty or missing `jd` will return a 422 error.
+
+**Deduplication:** Like `people-lookup`, duplicate URLs in `linkedin_urls` are silently deduplicated by the server.
 
 ### Response Example
 
@@ -691,6 +695,8 @@ Get aggregate statistics for a talent pool matching specific filters. Useful for
 
 **Note:** The `group_by` field is an **array** of dimension strings (e.g., `["state"]`, `["state", "city"]`).
 
+**Known issue:** Invalid `group_by` values (e.g., `["role"]`, `["level"]`) cause a **500 Internal Server Error** instead of a 400/422. Only use verified values: `"state"`, `"country"`, `"city"`. Always wrap `people-stats` calls with error handling.
+
 ### Response Example
 
 ```json
@@ -752,5 +758,18 @@ Common error codes:
 | 400 | `invalid_request` | Missing or malformed parameters |
 | 401 | `unauthorized` | Missing or invalid API token |
 | 404 | `not_found` | Requested resource does not exist |
+| 422 | `unprocessable` | Semantically invalid request (e.g., empty `jd` for grading endpoints) |
 | 429 | `rate_limited` | Too many requests; retry after the indicated interval |
-| 500 | `internal_error` | Unexpected server error |
+| 500 | `internal_error` | Unexpected server error (also triggered by invalid `group_by` in people-stats) |
+
+### Validation Quirks
+
+The API has **lenient validation** in several areas. These are not errors but can produce unexpected results:
+
+| Behavior | Detail |
+|---|---|
+| **Bad LinkedIn URLs** | Non-LinkedIn URLs or malformed URLs do NOT cause a 4xx error. They are silently treated as not-found and appear in the `not_found` array. Always validate URLs client-side before calling. |
+| **Invalid enum values** | Invalid `management_level`, `industry`, `function`, or `employment_type` values do NOT cause a 4xx error. They silently return zero results, similar to location abbreviations. |
+| **Duplicate URLs** | `people-lookup`, `people-compare`, and `people-bulk-grade` silently deduplicate URLs. `data.total` reflects the deduplicated count. |
+| **Location abbreviations** | "US", "CA", "NY", "UK" etc. do NOT cause errors. They silently return zero results. Always use full names. |
+| **Empty `jd`** | Both `people-grade` and `people-bulk-grade` correctly return 422 when `jd` is empty or missing. This is the strictest validation in the API. |
