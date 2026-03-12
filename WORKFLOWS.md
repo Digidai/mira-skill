@@ -177,9 +177,10 @@ User says: "Find me someone like linkedin.com/in/janepark for a replacement hire
 1. **Search for employees.** Use `people-fast-search` with the `company_name` filter set to the target company.
    - Optionally add a `title` filter if the user is interested in a specific function (e.g., "engineers at Stripe").
 2. **Get workforce statistics.** Use `people-stats` with the `company_name` filter and `group_by` set to relevant dimensions (note: `group_by` takes an **array**):
-   - `group_by: ["role"]` — breakdown by function (engineering, product, sales, etc.).
-   - `group_by: ["level"]` — breakdown by seniority (junior, mid, senior, lead, etc.).
-   - `group_by: ["location"]` — breakdown by geography.
+   - `group_by: ["state"]` — breakdown by geography (state level).
+   - `group_by: ["country"]` — breakdown by country.
+   - `group_by: ["state", "city"]` — multi-level geographic breakdown.
+   - You can combine multiple dimensions in the array for cross-tabulation.
 3. **Present the org overview.** Combine the search results and statistics into a summary:
    - Total employee count in the database.
    - Distribution by role/function.

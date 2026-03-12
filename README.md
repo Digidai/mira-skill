@@ -2,7 +2,7 @@
 
 [![ClawHub](https://img.shields.io/badge/ClawHub-mira-blue?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJ3aGl0ZSI+PHBhdGggZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyczQuNDggMTAgMTAgMTAgMTAtNC40OCAxMC0xMFMxNy41MiAyIDEyIDJ6Ii8+PC9zdmc+)](https://clawhub.ai)
 [![Version](https://img.shields.io/badge/version-1.3.0-green)](https://github.com/Digidai/mira-skill)
-[![License](https://img.shields.io/badge/license-proprietary-orange)](https://www.openjobs-ai.com)
+[![License](https://img.shields.io/badge/license-MIT--0-green)](https://opensource.org/license/mit-0)
 [![Platform](https://img.shields.io/badge/platform-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Gemini%20CLI-purple)]()
 
 Mira is a Claude Code Skill that gives your AI coding assistant recruiting superpowers. Search for candidates, grade resumes against job descriptions, compare talent side-by-side, and analyze hiring markets — all without leaving your terminal.
@@ -107,14 +107,13 @@ Or invoke explicitly with the slash command:
 
 ```
 mira-skill/
-├── SKILL.md              # Core instructions — loaded on every activation (~2,000 tokens)
+├── SKILL.md              # Core instructions — loaded on every activation (~1,300 words)
 ├── API_REFERENCE.md      # Endpoint URLs, request/response JSON examples
-├── SEARCH_FIELDS.md      # 17 filter fields, enum values, industry/function lists
+├── SEARCH_FIELDS.md      # 16 filter fields, enum values, industry/function lists
 ├── WORKFLOWS.md          # 8 recruiting workflows + parameter construction guide
 ├── TROUBLESHOOTING.md    # Error handling, empty results, location 422 fixes
-├── .clawhub/
-│   └── origin.json       # ClawHub metadata (auto-generated)
 ├── .clawhubignore        # Files excluded from ClawHub publishing
+├── LICENSE               # MIT-0 (required by ClawHub)
 └── README.md             # This file
 ```
 
@@ -202,7 +201,7 @@ If results are sparse, Mira automatically suggests broadening filters (removing 
 
 ### Frontmatter
 
-Mira's `SKILL.md` includes both `clawdbot` (Claude Code native) and `openclaw` (ClawHub CLI) metadata namespaces for full cross-platform compatibility:
+Mira's `SKILL.md` includes both `clawdbot` (Claude Code native) and `openclaw` (ClawHub CLI) metadata namespaces. Only [officially supported fields](https://github.com/openclaw/clawhub/blob/main/docs/skill-format.md) are used:
 
 ```yaml
 metadata:
@@ -210,50 +209,58 @@ metadata:
     emoji: "\U0001F50D"
     always: false
   openclaw:
-    emoji: "\U0001F50D"
-    always: false
+    emoji: "\U0001F50D"       # Display icon in CLI listings
+    always: false              # Only activate when triggered, not on every message
     homepage: https://www.openjobs-ai.com
-    primaryEnv: MIRA_KEY
+    primaryEnv: MIRA_KEY       # Key env var — CLI prompts for it on install
     requires:
       env:
-        - MIRA_KEY
+        - MIRA_KEY             # Validated before skill activation
     os:
       - macos
       - linux
       - windows
-    tags:
-      - recruiting
-      - hiring
-      - talent
-      - sourcing
-      - hr
-      - candidates
-      - linkedin
-      - resume
-      - cv
-      - grading
-      - headhunting
-      - staffing
-    category: Business
 ```
+
+**Official OpenClaw metadata fields:** `emoji`, `always`, `homepage`, `primaryEnv`, `requires` (env/bins/anyBins/config), `os`, `install`, `nix`, `config`, `skillKey`. Non-standard fields like `tags`, `category`, `author`, `license` are ignored by the CLI and should not be used.
 
 ### Publishing to ClawHub
 
 If you fork and customize this skill, you can publish to ClawHub:
 
 ```bash
+# Authenticate with ClawHub
+clawhub login
+
 # Navigate to your skill directory
 cd ~/.claude/skills/mira
 
-# Publish to ClawHub registry
-clawhub publish .
+# Publish with explicit version (required — must be valid semver)
+clawhub publish . --version 1.3.0
 ```
 
 ClawHub will:
-1. Validate the `SKILL.md` frontmatter
+1. Validate the `SKILL.md` frontmatter against the [skill format spec](https://github.com/openclaw/clawhub/blob/main/docs/skill-format.md)
 2. Index the `description` field using OpenAI `text-embedding-3-small` for semantic search
-3. Register the skill under the `Business` category
+3. Generate `.clawhub/origin.json` automatically (do not create this file manually)
 4. Make it discoverable via `clawhub search recruiting` or any related query
+
+**License:** All skills published to ClawHub are distributed under the [MIT-0 license](https://opensource.org/license/mit-0) (MIT No Attribution). This is a ClawHub requirement — proprietary skills cannot be published to the registry.
+
+### ClawHub CLI Commands
+
+| Command | Description | Example |
+|---|---|---|
+| `clawhub install <name>` | Install a skill by name or GitHub URL | `clawhub install mira` |
+| `clawhub search <query>` | Semantic search across all published skills | `clawhub search "recruiting talent sourcing"` |
+| `clawhub inspect <name>` | View skill metadata and frontmatter details | `clawhub inspect mira` |
+| `clawhub explore <name>` | Browse skill files and structure | `clawhub explore mira` |
+| `clawhub list` | List installed skills in current project | `clawhub list` |
+| `clawhub update <name>` | Update an installed skill to latest version | `clawhub update mira` |
+| `clawhub sync` | Sync skill versions across environments | `clawhub sync --bump --changelog` |
+| `clawhub publish <path>` | Publish to the ClawHub registry | `clawhub publish . --version 1.3.0` |
+| `clawhub uninstall <name>` | Remove an installed skill | `clawhub uninstall mira` |
+| `clawhub star <name>` | Star a skill on the registry | `clawhub star mira` |
 
 ### Semantic Search Optimization
 
@@ -285,8 +292,8 @@ This skill follows [Anthropic's Skill design best practices](https://docs.anthro
 3. **Verification loops** — Every API call has error handling with retry/escalation strategy
 4. **MUST/NEVER language** — Directive language for critical rules (location format, URL validation)
 5. **Concrete examples** — JSON request/response examples for every endpoint
-6. **Dual namespace** — `clawdbot` + `openclaw` metadata for maximum platform compatibility
-7. **Semantic search optimized** — Description packed with 17+ recruiting trigger keywords
+6. **Dual namespace** — `clawdbot` + `openclaw` metadata for maximum platform compatibility (only official fields used)
+7. **Semantic search optimized** — Description packed with 17+ recruiting trigger keywords for ClawHub's embedding-based discovery
 
 ---
 
@@ -337,4 +344,6 @@ When modifying the skill files, keep these rules in mind:
 
 ## License
 
-Proprietary — [OpenJobsAI](https://www.openjobs-ai.com)
+[MIT-0](https://opensource.org/license/mit-0) (MIT No Attribution) — Required by [ClawHub](https://clawhub.ai) for published skills.
+
+API service powered by [OpenJobsAI](https://www.openjobs-ai.com).

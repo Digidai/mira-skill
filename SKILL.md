@@ -24,22 +24,6 @@ metadata:
       - macos
       - linux
       - windows
-    tags:
-      - recruiting
-      - hiring
-      - talent
-      - sourcing
-      - hr
-      - candidates
-      - linkedin
-      - resume
-      - cv
-      - grading
-      - headhunting
-      - staffing
-    category: Business
-    author: OpenJobsAI
-    license: proprietary
 ---
 
 # Mira — AI Recruiting Skill
@@ -81,7 +65,7 @@ If this is the **first Mira operation in the current conversation**:
 - Read `WORKFLOWS.md` for endpoint details and pagination.
 - Build the filter payload. Remember:
   - **Location fields: MUST use full names ("United States" not "US", "California" not "CA").**
-- Execute `people-fast-search` (or `people-search` for advanced filters).
+- Execute `people-fast-search`. For the full list of available filter fields, see `SEARCH_FIELDS.md`.
 - Display results using the **Candidate Display Format** below.
 
 ### 2 — Grade / Score / Evaluate Candidates
@@ -211,22 +195,10 @@ Examples:
 
 ## Error Handling
 
-### API Errors
+- **4xx errors (except 429):** Fix the request before retrying. Surface the error message to the user.
+- **401/403:** Do not retry. Ask the user to verify credentials.
+- **429:** Wait per `Retry-After` header, then retry once.
+- **5xx errors:** Retry once after 3 seconds. If it persists, tell the user the service is temporarily unavailable.
+- **Timeout/network errors:** Retry once. If it fails again, inform the user.
 
-| Status Code | Action |
-|---|---|
-| `400` | Check request payload against the schema in the relevant workflow file. Surface the specific validation error to the user. |
-| `401` / `403` | Attempt token refresh once. If it fails again, ask the user to re-authenticate. Read `TROUBLESHOOTING.md` for detailed auth error handling. |
-| `404` | The requested resource was not found. Confirm the identifier (URL, ID) with the user. |
-| `429` | Rate limited. Wait the duration specified in `Retry-After` header, then retry once. Inform the user if the second attempt also fails. |
-| `500` / `502` / `503` | Server-side error. Retry once after 3 seconds. If it persists, inform the user that the OpenJobsAI service is temporarily unavailable. |
-
-### Network Errors
-
-| Error Type | Action |
-|---|---|
-| **Timeout** (request exceeds 30 s) | Retry once. If it times out again, tell the user: "The OpenJobsAI service is not responding. Please try again in a few minutes." |
-| **DNS failure** / connection refused | Do not retry. Tell the user: "Unable to reach the OpenJobsAI service. Please check your network connection and try again." |
-| **SSL/TLS error** | Do not retry. Tell the user: "Secure connection to OpenJobsAI failed. This may indicate a network configuration issue." |
-
-For all errors, read `TROUBLESHOOTING.md` for the full error taxonomy and escalation paths if the issue is not resolved by the actions above.
+For detailed error handling, read `TROUBLESHOOTING.md`.

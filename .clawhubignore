@@ -27,5 +27,6 @@ credentials.json
 *.tmp
 *.log
 
-# Documentation (not part of the skill itself)
-# README.md is kept for GitHub but ClawHub uses SKILL.md description
+# Documentation (not part of the skill itself — ClawHub uses SKILL.md description)
+README.md
+LICENSE

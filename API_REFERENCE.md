@@ -645,12 +645,22 @@ All filter fields are optional. Omit a field or set it to `null` to skip that fi
 |---|---|---|
 | `title` | string | Job title to search for (partial match) |
 | `skills` | string[] | Required skills (all must be present) |
-| `country` | string | Country filter |
-| `state` | string | State or region filter |
+| `country` | string | Country filter (**MUST use full names**, e.g., "United States" not "US") |
+| `state` | string | State or region filter (**MUST use full names**, e.g., "California" not "CA") |
 | `city` | string | City filter |
 | `min_experience_months` | integer | Minimum total experience in months |
 | `max_experience_months` | integer | Maximum total experience in months |
 | `is_working` | boolean | Filter by current employment status |
+| `management_level` | string | Seniority level (e.g., "Specialist", "Senior", "Manager", "Director", "C-Level") |
+| `company_name` | string | Current employer name |
+| `company_size` | string | Employer size range (e.g., "51-200", "10001+") |
+| `company_industry` | string | Employer industry (e.g., "Information Technology") |
+| `company_type` | string | Employer type (e.g., "Public Company", "Privately Held") |
+| `industry` | string | Candidate's professional industry classification |
+| `function` | string | Candidate's professional function (e.g., "Engineering", "Product Management") |
+| `employment_type` | string | Employment arrangement (e.g., "Full-Time", "Contract") |
+
+For the complete list of enum values for each field, see `SEARCH_FIELDS.md`.
 
 ### Response Fields
 
