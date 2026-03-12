@@ -47,7 +47,7 @@ curl -sL https://github.com/Digidai/mira-skill/archive/refs/heads/master.tar.gz 
 
 ### Setup API Key
 
-Mira requires an API key. Set it as an environment variable:
+Mira requires an API key. Get one at [platform.openjobs-ai.com](https://platform.openjobs-ai.com/), then set it as an environment variable:
 
 ```bash
 export MIRA_KEY="your-api-key-here"

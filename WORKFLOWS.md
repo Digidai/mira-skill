@@ -10,7 +10,7 @@ This file contains all search, sourcing, and grading workflows, plus the Paramet
 
 ### Steps
 
-1. **Verify API credentials.** Check that the Mira API key is configured (`MIRA_KEY` environment variable or `~/.config/mira/api_key`). If not, read `TROUBLESHOOTING.md` and walk the user through setup.
+1. **Verify API credentials.** Check that the Mira API key is configured (`MIRA_KEY` environment variable or `~/.config/mira/api_key`). If not, tell the user to get a key at https://platform.openjobs-ai.com/ and set it with `export MIRA_KEY="your-key"`.
 2. **Explain capabilities.** Briefly tell the user what Mira can do:
    - **Search** for candidates by title, skills, location, experience, company, and more.
    - **Grade** candidates against a job description (by LinkedIn URL or pasted CV text).

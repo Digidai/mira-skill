@@ -54,7 +54,7 @@ Work through this tree top-to-bottom on every user message that triggers Mira.
 If this is the **first Mira operation in the current conversation**:
 
 1. Verify that the Mira API key is configured (check `MIRA_KEY` environment variable or `~/.config/mira/api_key` config file).
-2. If credentials are missing or expired, walk the user through setup before proceeding.
+2. If credentials are missing or expired, tell the user: "Mira requires an API key. Get one at https://platform.openjobs-ai.com/ then set it with `export MIRA_KEY=\"your-key\"`".
 3. Continue to the relevant branch below.
 
 ### 1 — Search / Source / Find Candidates
