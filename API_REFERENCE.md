@@ -643,6 +643,7 @@ All filter fields are optional. Omit a field or set it to `null` to skip that fi
 
 | Field | Type | Description |
 |---|---|---|
+| `full_name` | string | Candidate's full name (partial match) |
 | `title` | string | Job title to search for (partial match) |
 | `skills` | string[] | Required skills (all must be present) |
 | `country` | string | Country filter (**MUST use full names**, e.g., "United States" not "US") |

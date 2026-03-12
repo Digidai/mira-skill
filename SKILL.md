@@ -41,7 +41,7 @@ Each file below contains detailed instructions for a specific domain. **Read a f
 | `WORKFLOWS.md` | User asks to **search**, **source**, **find**, or **compare** candidates, OR you need the Parameter Construction Guide for translating natural language into structured filters | Search workflows, grading workflows, filter construction, iterative refinement, similar candidate search, company talent map |
 | `API_REFERENCE.md` | You need to **construct an API call** or **format response data**, or the user asks about available endpoints | Endpoint URLs, request/response JSON examples, field reference tables |
 | `SEARCH_FIELDS.md` | You need to **build search filters** or choose **enum values** for titles, skills, locations, industries, or management levels | Filter field types, enum values, industry/function lists, management level mapping |
-| `TROUBLESHOOTING.md` | Any API call **fails**, **times out**, returns **empty results**, or returns an **unexpected status code** | HTTP error handling, network errors, empty result diagnosis, bulk-grade partial failures, location 422 fixes |
+| `TROUBLESHOOTING.md` | Any API call **fails**, **times out**, returns **empty results**, or returns an **unexpected status code** | HTTP error handling, network errors, empty result diagnosis, bulk-grade partial failures, location silent failure fixes |
 
 ---
 
@@ -171,7 +171,7 @@ Apply the role-level modifier whenever the user's query or job description conta
 
 ## Location Format Rule
 
-**Location fields: MUST use full names ("United States" not "US", "California" not "CA", "New York" not "NY", "United Kingdom" not "UK").** The API will reject or misinterpret abbreviated location values.
+**Location fields: MUST use full names ("United States" not "US", "California" not "CA", "New York" not "NY", "United Kingdom" not "UK").** Abbreviations will NOT cause an error — the API silently returns zero results, making the problem hard to diagnose.
 
 ---
 

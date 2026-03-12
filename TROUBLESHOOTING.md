@@ -14,7 +14,7 @@ When an API call returns a non-2xx status code, take the action listed below. Do
 | **401** Unauthorized | The API key or auth token is missing, expired, or invalid. | Do NOT retry. Inform the user that authentication has failed and ask them to verify their Mira API credentials. |
 | **403** Forbidden | The credentials are valid but lack permission for this resource or action. | Do NOT retry. Tell the user they do not have permission for the requested operation and suggest they check their account role or plan tier. |
 | **404** Not Found | The endpoint path or a referenced resource ID does not exist. | Verify the URL path is correct. If a candidate or job ID was passed, confirm it exists. Do NOT retry with the same ID -- inform the user the resource was not found. |
-| **422** Unprocessable Entity | The request is syntactically valid but semantically wrong. **This is the most common error -- see Section 6 for location-specific 422s.** | Read the error body for field-level details. Fix the offending field value and retry once. |
+| **422** Unprocessable Entity | The request is syntactically valid but semantically wrong. | Read the error body for field-level details. Fix the offending field value and retry once. **Note:** Location abbreviations do NOT cause a 422 — they silently return empty results. See Section 6. |
 | **429** Too Many Requests | Rate limit exceeded. | Follow the rate-limiting strategy in Section 7. Wait for the duration specified in the `Retry-After` header before retrying. |
 | **500** Internal Server Error | An unexpected error on Mira's servers. | Retry the exact same request up to 2 times with exponential backoff (2s, then 4s). If it still fails, inform the user that the Mira service is experiencing an internal error. |
 | **502** Bad Gateway | An upstream server returned an invalid response to Mira. | Retry up to 2 times with exponential backoff (2s, then 4s). If it persists, inform the user of a temporary service issue. |
@@ -126,9 +126,9 @@ Would you like me to retry the 1 retryable failure?
 
 ---
 
-## 6. Location 422 Errors
+## 6. Location Empty Results (Silent Failure)
 
-This is the **single most common error** when working with the Mira API. The API requires full location names and will reject abbreviations with a 422 status.
+This is the **single most common issue** when working with the Mira API. The API requires full location names — abbreviations will NOT cause a 422 error. Instead, the API **silently returns zero results**, making the problem hard to diagnose.
 
 ### The Rule
 
@@ -156,16 +156,16 @@ Always use **full, unabbreviated location names** in every API call that accepts
 | `UAE` | `United Arab Emirates` |
 | `KSA` | `Saudi Arabia` |
 
-### What to Do When You Get a Location 422
+### What to Do When Location Filters Return Zero Results
 
-1. Read the error message -- it usually names the offending field and value.
+1. Check if any location field uses an abbreviation (US, CA, NY, UK, etc.).
 2. Replace the abbreviated location with its full name.
 3. If the user said something like "candidates in CA," clarify whether they mean California (US state) or Canada (country) before retrying.
 4. Retry the request with the corrected location.
 
 ### Proactive Prevention
 
-When the user provides a location using an abbreviation, expand it to the full name BEFORE making the API call. Do not wait for the 422 to tell you it is wrong.
+When the user provides a location using an abbreviation, expand it to the full name BEFORE making the API call. The API will not warn you — it silently returns zero results.
 
 ---
 

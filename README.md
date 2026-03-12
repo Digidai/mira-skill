@@ -109,9 +109,9 @@ Or invoke explicitly with the slash command:
 mira-skill/
 ├── SKILL.md              # Core instructions — loaded on every activation (~1,300 words)
 ├── API_REFERENCE.md      # Endpoint URLs, request/response JSON examples
-├── SEARCH_FIELDS.md      # 16 filter fields, enum values, industry/function lists
+├── SEARCH_FIELDS.md      # 17 filter fields, enum values, industry/function lists
 ├── WORKFLOWS.md          # 8 recruiting workflows + parameter construction guide
-├── TROUBLESHOOTING.md    # Error handling, empty results, location 422 fixes
+├── TROUBLESHOOTING.md    # Error handling, empty results, location silent failure fixes
 ├── .clawhubignore        # Files excluded from ClawHub publishing
 ├── LICENSE               # MIT-0 (required by ClawHub)
 └── README.md             # This file

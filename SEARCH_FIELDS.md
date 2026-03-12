@@ -8,6 +8,7 @@ Complete reference for all filter fields accepted by the `people-fast-search` en
 
 | Field | Type | Example Value |
 |---|---|---|
+| `full_name` | string | `"John Smith"` |
 | `title` | string | `"Backend Engineer"` |
 | `skills` | string[] | `["Python", "AWS"]` |
 | `country` | string | `"United States"` |
@@ -24,6 +25,22 @@ Complete reference for all filter fields accepted by the `people-fast-search` en
 | `industry` | string | `"Finance & Accounting"` |
 | `function` | string | `"Engineering"` |
 | `employment_type` | string | `"Full-Time"` |
+
+---
+
+## Full Name
+
+**Type:** string (partial match)
+
+Search by candidate's name. Useful when the user asks for a specific person by name (e.g., "find John Smith in California").
+
+```json
+{ "full_name": "John Smith", "country": "United States" }
+```
+
+**Notes:**
+- Combine with location or company filters to narrow results when the name is common.
+- Matching is case-insensitive and partial (e.g., `"John"` will match "John Smith", "John Doe", etc.).
 
 ---
 
@@ -102,7 +119,7 @@ Skills are matched against the candidate's skill list. Matching is case-insensit
 
 ## Location Fields
 
-**CRITICAL: All location fields MUST use full, unabbreviated names. The API will reject or misinterpret abbreviations.**
+**CRITICAL: All location fields MUST use full, unabbreviated names. Abbreviations will NOT cause an error — the API silently returns zero results, making the problem hard to diagnose.**
 
 ### country
 
