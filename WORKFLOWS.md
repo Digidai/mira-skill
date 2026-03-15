@@ -10,17 +10,19 @@ This file contains all search, sourcing, and grading workflows, plus the Paramet
 
 ### Steps
 
-1. **Verify API credentials.** Check that the Mira API key is configured (`MIRA_KEY` environment variable or `~/.config/mira/api_key`). If not, tell the user to get a key at https://platform.openjobs-ai.com/ and set it with `export MIRA_KEY="your-key"`.
-2. **Explain capabilities.** Briefly tell the user what Mira can do:
+1. **Version check.** Call `curl -s https://mira-api.openjobs-ai.com/v1/version` and compare with `1.4.0`. If newer, notify the user.
+2. **Verify API credentials.** Check that the Mira API key is configured (`MIRA_KEY` environment variable or `~/.config/mira/api_key`). If not, tell the user to get a key at https://platform.openjobs-ai.com/ and set it with `export MIRA_KEY="your-key"`.
+3. **Explain capabilities.** Briefly tell the user what Mira can do:
    - **Search** for candidates by title, skills, location, experience, company, and more.
    - **Grade** candidates against a job description (by LinkedIn URL or pasted CV text).
    - **Analytics** on talent pools, salary benchmarks, and hiring-market trends.
    - **Compare** candidates side-by-side.
+   - **Unlock contact info** — get candidate email addresses.
    - **Find similar** candidates to a reference person (replacement hire).
    - **Map company talent** to understand an organization's workforce.
-3. **Suggest a demo.** Offer a quick example the user can try right now:
+4. **Suggest a demo.** Offer a quick example the user can try right now:
    > "Want to try it out? Give me a job title and location (e.g., 'Find senior backend engineers in Berlin') and I'll run a search."
-4. **Proceed.** Once credentials are confirmed and the user provides a task, continue to the relevant workflow below.
+5. **Proceed.** Once credentials are confirmed and the user provides a task, continue to the relevant workflow below.
 
 ---
 
@@ -128,8 +130,8 @@ This is the default pattern for all candidate searches. Workflows 1 and 2 should
 |---|---|
 | 0 results | Remove the most restrictive filter (often `skills` or `city`). Try state-level or country-level location. |
 | Results lack a key skill | Add that skill to the `skills` array and re-run. |
-| Experience levels are off | Adjust `min_experience_months` / `max_experience_months`. See **Experience Range Translation** in `SKILL.md`. |
-| Wrong industry/domain | Add or change the `title` filter to be more specific (e.g., "Backend Engineer" instead of "Engineer"). |
+| Experience levels are off | Adjust `experience_months_min` / `experience_months_max`. See **Experience Range Translation** in `SKILL.md`. |
+| Wrong industry/domain | Add or change the `active_title` filter to be more specific (e.g., "Backend Engineer" instead of "Engineer"). |
 | Need more variety | Run multiple searches with slight filter variations and combine the unique results. |
 
 ---
@@ -149,9 +151,9 @@ This is the default pattern for all candidate searches. Workflows 1 and 2 should
    - **Current company:** Find the entry in `experience` where `is_current: true` and read its `company_name`.
    - **Level:** Infer seniority from the title (e.g., "Senior", "Staff", "Lead", "Principal").
 3. **Search for similar candidates.** Use `people-fast-search` with the extracted attributes as filters:
-   - Set `title` to the reference person's role type (e.g., "Software Engineer").
+   - Set `active_title` to the reference person's role type (e.g., "Software Engineer").
    - Set `skills` to 2-3 of the most distinctive skills (not generic ones like "Communication").
-   - Set `min_experience_months` and `max_experience_months` to a range around the reference person's experience.
+   - Set `experience_months_min` and `experience_months_max` to a range around the reference person's experience.
    - Set location filters as appropriate (broaden from city to state or country if needed).
 4. **Optionally grade results.** If the user also provided a job description, run `people-bulk-grade` on the search results to rank them by fit.
 5. **Present results.** Display candidates using the Candidate Display Format, noting which attributes they share with the reference person.
@@ -175,12 +177,18 @@ User says: "Find me someone like linkedin.com/in/janepark for a replacement hire
 ### Steps
 
 1. **Search for employees.** Use `people-fast-search` with the `company_name` filter set to the target company.
-   - Optionally add a `title` filter if the user is interested in a specific function (e.g., "engineers at Stripe").
-2. **Get workforce statistics.** Use `people-stats` with the `company_name` filter and `group_by` set to relevant dimensions (note: `group_by` takes an **array**):
+   - Optionally add an `active_title` filter if the user is interested in a specific function (e.g., "engineers at Stripe").
+2. **Get workforce statistics.** Use `people-stats` with the `company_name` filter and `group_by` set to relevant dimensions (note: `group_by` takes an **array**, max 5):
    - `group_by: ["state"]` — breakdown by geography (state level).
    - `group_by: ["country"]` — breakdown by country.
+   - `group_by: ["management_level"]` — breakdown by seniority.
+   - `group_by: ["active_title"]` — breakdown by job title.
+   - `group_by: ["active_department"]` — breakdown by department.
+   - `group_by: ["industry"]` — breakdown by industry.
    - `group_by: ["state", "city"]` — multi-level geographic breakdown.
-   - You can combine multiple dimensions in the array for cross-tabulation.
+   - Optionally add `stats_fields: ["experience_months"]` for min/max/avg experience.
+   - Optionally add `histogram_fields: [{"field": "age", "interval": 10}]` for age distribution.
+   - See `API_REFERENCE.md` for the full list of group_by dimensions, stats_fields, and histogram_fields.
 3. **Present the org overview.** Combine the search results and statistics into a summary:
    - Total employee count in the database.
    - Distribution by role/function.
@@ -191,13 +199,32 @@ User says: "Find me someone like linkedin.com/in/janepark for a replacement hire
 
 ---
 
+## Workflow 8: Unlock Candidate Contact Info
+
+**Trigger:** User wants to get candidate email addresses or contact information.
+
+### Steps
+
+1. Collect LinkedIn URLs from the user (or use URLs from a previous search).
+2. **Warn the user about quota cost:** Each URL consumes 1 quota point. Confirm before proceeding if the list is large.
+3. Use `people-unlock` with the LinkedIn URLs (1–50 per request).
+4. Present results:
+
+```
+**[Name]** — personEmail: xxx@gmail.com | workEmail: xxx@company.com
+```
+
+5. Note any URLs where both emails are `null` — contact info is not available for everyone.
+
+---
+
 ## Parameter Construction Guide
 
 Use this guide to translate natural-language recruiting requests into structured `people-fast-search` filter payloads.
 
 ### Title Mapping
 
-| User says | `title` value |
+| User says | `active_title` value |
 |---|---|
 | "software engineer" | `"Software Engineer"` |
 | "backend engineer" / "backend developer" | `"Backend Engineer"` |
@@ -211,17 +238,18 @@ Use this guide to translate natural-language recruiting requests into structured
 | "product manager" / "PM" | `"Product Manager"` |
 | "engineering manager" / "EM" | `"Engineering Manager"` |
 | "designer" / "UX designer" | `"UX Designer"` |
-| "lead engineer" | Use `title: "Engineer"` combined with experience filters for senior-level (see below). The API does not have a dedicated "Lead" title; filter by experience range or look for "Staff Engineer" / "Senior Engineer" titles. |
+| "lead engineer" | Use `active_title: "Engineer"` combined with experience filters for senior-level (see below). The API does not have a dedicated "Lead" title; filter by experience range or look for "Staff Engineer" / "Senior Engineer" titles. |
 
 ### Skills Mapping
 
-| User says | `skills` value |
-|---|---|
-| "knows Python and AWS" | `["Python", "AWS"]` |
-| "React developer" | `["React"]` (also set `title` to a frontend role) |
-| "cloud infrastructure" | `["AWS"]` or `["GCP"]` or `["Azure"]` (pick based on context, or run separate searches) |
-| "full-stack with React and Node" | `["React", "Node.js"]` |
-| "AI/ML skills" | `["Machine Learning"]` or `["PyTorch"]` or `["TensorFlow"]` (pick the most specific) |
+| User says | `skills` value | `skills_operator` |
+|---|---|---|
+| "knows Python and AWS" | `["Python", "AWS"]` | `"AND"` (default) |
+| "knows Python or Go" | `["Python", "Go"]` | `"OR"` |
+| "React developer" | `["React"]` | — (also set `active_title` to a frontend role) |
+| "cloud infrastructure" | `["AWS"]` or `["GCP"]` or `["Azure"]` | — (pick based on context) |
+| "full-stack with React and Node" | `["React", "Node.js"]` | `"AND"` |
+| "AI/ML skills" | `["Machine Learning"]` or `["PyTorch"]` or `["TensorFlow"]` | — (pick the most specific) |
 
 ### Location Mapping
 
@@ -243,7 +271,7 @@ Use this guide to translate natural-language recruiting requests into structured
 
 Refer to the **Experience Range Translation** table in `SKILL.md` for the full set of conversions. Key additions:
 
-| User says | `min_experience_months` | `max_experience_months` |
+| User says | `experience_months_min` | `experience_months_max` |
 |---|---|---|
 | "mid-level" | `36` | `96` |
 | "junior" / "entry level" | `0` | `36` |
@@ -256,7 +284,10 @@ Refer to the **Experience Range Translation** table in `SKILL.md` for the full s
 
 | User says | Filter approach |
 |---|---|
-| "lead engineer" | Set `title: "Senior Engineer"` or `title: "Staff Engineer"`. Alternatively use experience filters: `min_experience_months: 72, max_experience_months: 180`. |
+| "lead engineer" | Set `active_title: "Senior Engineer"` or `active_title: "Staff Engineer"`. Alternatively use experience filters: `experience_months_min: 72, experience_months_max: 180`. |
+| "senior IC" | Set `level: "Senior"` or `management_level: "Senior"` |
+| "engineering role" | Set `role: "Engineering and Technical"` |
+| "sales people" | Set `role: "Sales"` |
 | "FAANG engineers" | Search each company separately with `company_name` filter: `"Google"`, `"Meta"`, `"Apple"`, `"Amazon"`, `"Netflix"`. Combine the results from all five searches. |
 | "no job hoppers" | Not directly filterable via the API. After retrieving results, review `experience` from `people-lookup` and note in the output if a candidate's average tenure is less than 2 years. Flag these candidates accordingly. |
 | "currently employed" | `is_working: true` |
@@ -266,9 +297,9 @@ Refer to the **Experience Range Translation** table in `SKILL.md` for the full s
 
 | User says | Filter fields |
 |---|---|
-| "engineers at Google" | `company_name: "Google", title: "Engineer"` |
+| "engineers at Google" | `company_name: "Google", active_title: "Engineer"` |
 | "FAANG engineers" | Run 5 separate searches with `company_name` set to each of: `"Google"`, `"Meta"`, `"Apple"`, `"Amazon"`, `"Netflix"`. Combine and deduplicate. |
-| "ex-Stripe" | Not directly filterable by past employers. Search with `title` and `skills` relevant to the role, then use `people-lookup` on results to check `experience` for Stripe. |
+| "ex-Stripe" | Not directly filterable by past employers. Search with `active_title` and `skills` relevant to the role, then use `people-lookup` on results to check `experience` for Stripe. |
 
 ### Combining Filters
 
@@ -278,12 +309,13 @@ When the user specifies multiple criteria, combine them into a single `people-fa
 
 ```json
 {
-  "title": "Backend Engineer",
+  "active_title": "Backend Engineer",
   "skills": ["Python", "Kubernetes"],
+  "skills_operator": "AND",
   "country": "United States",
   "state": "California",
-  "min_experience_months": 60,
-  "max_experience_months": 180,
+  "experience_months_min": 60,
+  "experience_months_max": 180,
   "is_working": true
 }
 ```
@@ -294,10 +326,10 @@ When too many filters produce zero results, relax them in this order (least impo
 
 1. `city` — broaden to state or country
 2. `is_working` — remove employment status filter
-3. `max_experience_months` — raise the upper bound
+3. `experience_months_max` — raise the upper bound
 4. One skill from the `skills` array — remove the least critical skill
 5. `state` — broaden to country-level
-6. `title` — only remove as a last resort
+6. `active_title` — only remove as a last resort
 
 ---
 

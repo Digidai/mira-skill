@@ -12,7 +12,8 @@ When an API call returns a non-2xx status code, take the action listed below. Do
 |---|---|---|
 | **400** Bad Request | The request body or query parameters are malformed. | Read the error message carefully. Fix the request payload (wrong field name, invalid enum value, missing required field) and retry once. Do NOT retry with the same payload. |
 | **401** Unauthorized | The API key or auth token is missing, expired, or invalid. | Do NOT retry. Inform the user that authentication has failed and ask them to verify their Mira API credentials. |
-| **403** Forbidden | The credentials are valid but lack permission for this resource or action. | Do NOT retry. Tell the user they do not have permission for the requested operation and suggest they check their account role or plan tier. |
+| **402** Quota Exhausted | API quota has been depleted. | Do NOT retry. Inform the user their quota is exhausted and suggest they check their plan at https://platform.openjobs-ai.com/ |
+| **403** Forbidden | The credentials are valid but the API key is disabled, expired, or has insufficient scope. | Do NOT retry. Tell the user they do not have permission for the requested operation and suggest they check their account role or plan tier. |
 | **404** Not Found | The endpoint path or a referenced resource ID does not exist. | Verify the URL path is correct. If a candidate or job ID was passed, confirm it exists. Do NOT retry with the same ID -- inform the user the resource was not found. |
 | **422** Unprocessable Entity | The request is syntactically valid but semantically wrong. | Read the error body for field-level details. Fix the offending field value and retry once. **Note:** Location abbreviations do NOT cause a 422 — they silently return empty results. See Section 6. |
 | **429** Too Many Requests | Rate limit exceeded. | Follow the rate-limiting strategy in Section 7. Wait for the duration specified in the `Retry-After` header before retrying. |
@@ -136,7 +137,7 @@ Always use **full, unabbreviated location names** in every API call that accepts
 
 ### Common Mistakes and Corrections
 
-| Wrong (will cause 422) | Correct |
+| Wrong (silently returns 0 results) | Correct |
 |---|---|
 | `US` | `United States` |
 | `USA` | `United States` |
@@ -213,11 +214,11 @@ These are confirmed behaviors discovered through testing. They are not bugs you 
 
 ### people-stats 500 on Invalid group_by
 
-Passing an unsupported `group_by` value (e.g., `["role"]`, `["level"]`, `["location"]`) causes a **500 Internal Server Error** instead of a 400/422. This is a server-side bug.
+Passing an unsupported `group_by` value causes a **500 Internal Server Error** instead of a 400/422. This is a server-side bug.
 
-**Verified safe values:** `"state"`, `"country"`, `"city"`.
+**Verified safe values:** `country`, `city`, `state`, `active_title`, `active_department`, `management_level`, `job_title`, `company_name`, `industry`, `company_type`, `level`, `role`, `exp_country`, `exp_city`, `degree_level`, `degree_str`, `institution_name`, `major`, `institution_country`, `institution_city`, `skills`, `is_working`, `is_decision_maker`, `languages`.
 
-**Action:** NEVER pass unverified `group_by` values. If you need a breakdown by role or seniority, use `people-fast-search` results and aggregate client-side instead.
+**Action:** Only use values from the list above. Always wrap `people-stats` calls with error handling.
 
 ### Lenient Input Validation
 

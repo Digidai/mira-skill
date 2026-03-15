@@ -1,7 +1,7 @@
 # Mira — AI Recruiting Skill for Claude Code
 
 [![ClawHub](https://img.shields.io/badge/ClawHub-mira-blue?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJ3aGl0ZSI+PHBhdGggZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyczQuNDggMTAgMTAgMTAgMTAtNC40OCAxMC0xMFMxNy41MiAyIDEyIDJ6Ii8+PC9zdmc+)](https://clawhub.ai)
-[![Version](https://img.shields.io/badge/version-1.3.0-green)](https://github.com/Digidai/mira-skill)
+[![Version](https://img.shields.io/badge/version-1.4.0-green)](https://github.com/Digidai/mira-skill)
 [![License](https://img.shields.io/badge/license-MIT--0-green)](https://opensource.org/license/mit-0)
 [![Platform](https://img.shields.io/badge/platform-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Gemini%20CLI-purple)]()
 
@@ -97,6 +97,7 @@ Or invoke explicitly with the slash command:
 | **Grade against JD** | "Score this LinkedIn profile against our JD" | `people-bulk-grade` / `people-grade` |
 | **Lookup profiles** | "Show me details for linkedin.com/in/johndoe" | `people-lookup` |
 | **Compare candidates** | "Compare these two candidates side-by-side" | `people-compare` |
+| **Unlock contact info** | "Get email for this candidate" | `people-unlock` |
 | **Find similar** | "Find someone like this person for a replacement hire" | `people-lookup` + `people-fast-search` |
 | **Company talent map** | "Show me engineers at Stripe" | `people-fast-search` + `people-stats` |
 | **Market analytics** | "What's the AI/ML talent market like in Austin?" | `people-stats` |
@@ -109,8 +110,8 @@ Or invoke explicitly with the slash command:
 mira-skill/
 ├── SKILL.md              # Core instructions — loaded on every activation (~1,300 words)
 ├── API_REFERENCE.md      # Endpoint URLs, request/response JSON examples
-├── SEARCH_FIELDS.md      # 17 filter fields, enum values, industry/function lists
-├── WORKFLOWS.md          # 8 recruiting workflows + parameter construction guide
+├── SEARCH_FIELDS.md      # 26+ filter fields, enum values, industry/role lists
+├── WORKFLOWS.md          # 9 recruiting workflows + parameter construction guide
 ├── TROUBLESHOOTING.md    # Error handling, empty results, location silent failure fixes
 ├── .clawhubignore        # Files excluded from ClawHub publishing
 ├── LICENSE               # MIT-0 (required by ClawHub)
@@ -189,7 +190,7 @@ If results are sparse, Mira automatically suggests broadening filters (removing 
 ## Key Features
 
 - **Natural language to API translation** — Say "find senior Python devs in California" and Mira translates it to structured API filters automatically
-- **Smart experience ranges** — "5+ years" for a Senior role searches 5-25 years; for an IC role, 5-15 years. Context-aware, never excludes overqualified candidates
+- **Smart experience ranges** — "5+ years" for a Senior/Lead role searches 5-15 years; for an IC role, 5-7 years. Context-aware, prevents returning overly senior candidates
 - **Decision tree routing** — Automatically picks the right API endpoint based on input (LinkedIn URL vs CV text vs search criteria)
 - **Iterative refinement** — Suggests filter adjustments and re-runs when results need improvement (up to 3 rounds)
 - **Error self-healing** — Auto-expands location abbreviations ("CA" → "California"), retries on transient errors, handles partial batch failures gracefully
@@ -236,7 +237,7 @@ clawhub login
 cd ~/.claude/skills/mira
 
 # Publish with explicit version (required — must be valid semver)
-clawhub publish . --version 1.3.0
+clawhub publish . --version 1.4.0
 ```
 
 ClawHub will:
@@ -258,13 +259,13 @@ ClawHub will:
 | `clawhub list` | List installed skills in current project | `clawhub list` |
 | `clawhub update <name>` | Update an installed skill to latest version | `clawhub update mira` |
 | `clawhub sync` | Sync skill versions across environments | `clawhub sync --bump --changelog` |
-| `clawhub publish <path>` | Publish to the ClawHub registry | `clawhub publish . --version 1.3.0` |
+| `clawhub publish <path>` | Publish to the ClawHub registry | `clawhub publish . --version 1.4.0` |
 | `clawhub uninstall <name>` | Remove an installed skill | `clawhub uninstall mira` |
 | `clawhub star <name>` | Star a skill on the registry | `clawhub star mira` |
 
 ### Semantic Search Optimization
 
-The `description` field is optimized for ClawHub's embedding-based search. It contains 17+ trigger keywords covering all recruiting scenarios:
+The `description` field is optimized for ClawHub's embedding-based search. It contains 20+ trigger keywords covering all recruiting scenarios:
 
 > recruiting, talent-acquisition, source candidates, search for talent, grade applicants, score resumes, evaluate CVs, staffing analytics, compare candidates, replacement hires, headhunting, recruiter workflows, candidate searches, filtering results, scoring CVs, hiring-market insights
 
@@ -293,7 +294,7 @@ This skill follows [Anthropic's Skill design best practices](https://docs.anthro
 4. **MUST/NEVER language** — Directive language for critical rules (location format, URL validation)
 5. **Concrete examples** — JSON request/response examples for every endpoint
 6. **Dual namespace** — `clawdbot` + `openclaw` metadata for maximum platform compatibility (only official fields used)
-7. **Semantic search optimized** — Description packed with 17+ recruiting trigger keywords for ClawHub's embedding-based discovery
+7. **Semantic search optimized** — Description packed with 20+ recruiting trigger keywords for ClawHub's embedding-based discovery
 
 ---
 
@@ -307,16 +308,17 @@ This skill follows [Anthropic's Skill design best practices](https://docs.anthro
 
 ## OpenJobs AI Skills Ecosystem
 
-Mira is the core skill in the OpenJobs AI suite. Planned extensions:
+Mira is the unified recruiting skill powered by OpenJobs AI. The official OpenJobs suite also includes standalone skills for specific use cases:
 
 | Skill | Status | Description |
 |---|---|---|
-| **mira** | Released | Candidate search, grading, analytics |
+| **mira** | Released | Unified: candidate search, grading, analytics, contact unlock |
+| **openjobs-people-search** | Official | Standalone candidate search and lookup |
+| **openjobs-people-match** | Official | Standalone CV/JD grading and ranking |
+| **openjobs-jobs-search** | Official | Job position search |
+| **openjobs-ai-talent-search** | Official | Academic scholar search |
 | **mira-outreach** | Planned (P0) | Generate personalized outreach messages based on candidate profiles |
 | **mira-pipeline** | Planned (P1) | Track candidates through hiring stages with persistent local files |
-| **mira-similar** | Planned (P1) | Find similar candidates for replacement hires |
-| **mira-talent-map** | Planned (P1) | Map company workforce by role, level, and geography |
-| **mira-market-intel** | Planned (P1) | Deep talent market analysis with multi-dimensional insights |
 | **mira-jd-writer** | Planned (P2) | Generate and optimize job descriptions |
 
 ---

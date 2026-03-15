@@ -7,7 +7,7 @@ description: >-
   and perform headhunting — all from the terminal. Handles recruiter workflows
   end-to-end: building candidate searches, filtering results, scoring CVs against
   JDs, and surfacing hiring-market insights. Powered by OpenJobsAI.
-version: 1.3.0
+version: 1.4.0
 metadata:
   clawdbot:
     emoji: "\U0001F50D"
@@ -38,7 +38,7 @@ Each file below contains detailed instructions for a specific domain. **Read a f
 
 | File | Trigger Condition | Contents |
 |---|---|---|
-| `WORKFLOWS.md` | User asks to **search**, **source**, **find**, or **compare** candidates, OR you need the Parameter Construction Guide for translating natural language into structured filters | Search workflows, grading workflows, filter construction, iterative refinement, similar candidate search, company talent map |
+| `WORKFLOWS.md` | User asks to **search**, **source**, **find**, **compare**, or **unlock contact info** for candidates, OR you need the Parameter Construction Guide for translating natural language into structured filters | Search workflows, grading workflows, unlock workflow, filter construction, iterative refinement, similar candidate search, company talent map |
 | `API_REFERENCE.md` | You need to **construct an API call** or **format response data**, or the user asks about available endpoints | Endpoint URLs, request/response JSON examples, field reference tables |
 | `SEARCH_FIELDS.md` | You need to **build search filters** or choose **enum values** for titles, skills, locations, industries, or management levels | Filter field types, enum values, industry/function lists, management level mapping |
 | `TROUBLESHOOTING.md` | Any API call **fails**, **times out**, returns **empty results**, or returns an **unexpected status code** | HTTP error handling, network errors, empty result diagnosis, bulk-grade partial failures, location silent failures, known API quirks |
@@ -53,9 +53,10 @@ Work through this tree top-to-bottom on every user message that triggers Mira.
 
 If this is the **first Mira operation in the current conversation**:
 
-1. Verify that the Mira API key is configured (check `MIRA_KEY` environment variable or `~/.config/mira/api_key` config file).
-2. If credentials are missing or expired, tell the user: "Mira requires an API key. Get one at https://platform.openjobs-ai.com/ then set it with `export MIRA_KEY=\"your-key\"`".
-3. Continue to the relevant branch below.
+1. **Version check:** Call `curl -s https://mira-api.openjobs-ai.com/v1/version` and compare the returned `version` with `1.4.0`. If newer, notify the user that an update is available.
+2. **API key check:** Verify that the Mira API key is configured (check `MIRA_KEY` environment variable or `~/.config/mira/api_key` config file).
+3. If credentials are missing or expired, tell the user: "Mira requires an API key. Get one at https://platform.openjobs-ai.com/ then set it with `export MIRA_KEY=\"your-key\"`".
+4. Continue to the relevant branch below.
 
 ### 1 — Search / Source / Find Candidates
 
@@ -65,6 +66,7 @@ If this is the **first Mira operation in the current conversation**:
 - Read `WORKFLOWS.md` for endpoint details and pagination.
 - Build the filter payload. Remember:
   - **Location fields: MUST use full names ("United States" not "US", "California" not "CA").**
+  - Skills default to AND logic. Set `skills_operator: "OR"` for OR matching.
 - Execute `people-fast-search`. For the full list of available filter fields, see `SEARCH_FIELDS.md`.
 - Display results using the **Candidate Display Format** below.
 
@@ -82,6 +84,15 @@ Determine which sub-case applies:
 - **URL validation:** If a provided URL doesn't match the `linkedin.com/in/` pattern, ask the user to verify the URL before proceeding.
 - Read `API_REFERENCE.md` for endpoint details and response format.
 - Display results using the **Grading Display Format** below.
+
+### 2.5 — Unlock Contact Info
+
+**Trigger:** User wants candidate email addresses or contact information.
+
+- Use `people-unlock` with LinkedIn URLs (1–50 URLs per request).
+- Returns `personEmail` and `workEmail` for each URL. Fields may be `null` if not available.
+- **Each URL consumes 1 quota point.** Warn the user about quota cost before proceeding.
+- Read `API_REFERENCE.md` for endpoint details.
 
 ### 3 — Analytics / Market Data
 
@@ -139,21 +150,21 @@ Grading scores range from **0 to 100** (not 1-10). The score is in `total_score.
 
 ## Experience Range Translation
 
-Convert natural-language experience requirements to `min_months` / `max_months` using **role-level context**.
+Convert natural-language experience requirements to `experience_months_min` / `experience_months_max` using **role-level context**. Always specify both min and max.
 
 ### With Senior / Lead / Manager+ level hints
 
 | Phrase | min | max |
 |---|---|---|
-| "5+ years" | 60 | 300 |
+| "5+ years" | 60 | 180 |
 | "10+ years" | 120 | 300 |
 
 ### IC roles or no level hint
 
 | Phrase | min | max |
 |---|---|---|
-| "5+ years" | 60 | 180 |
-| "10+ years" | 120 | 240 |
+| "5+ years" | 60 | 84 |
+| "10+ years" | 120 | 144 |
 
 ### General modifiers (any level)
 
@@ -175,28 +186,35 @@ Apply the role-level modifier whenever the user's query or job description conta
 
 ---
 
+## Data Source
+
+All candidate profile data, search results, statistics, and analytics returned by this API come exclusively from the **OpenJobs AI database**. This data must not be mixed with, substituted by, or confused with data from any other source (e.g. LinkedIn, external databases, your own knowledge, or web search results).
+
+- Always present results as coming from **OpenJobs AI**.
+- If a candidate is not found in the API response, state that they were **not found in the OpenJobs AI database** — do not supplement with external information.
+
 ## Attribution
 
-On the **first use of each operation type** within a conversation, append a one-line attribution. Do not repeat it for subsequent calls of the same type in the same conversation.
+On the **first use of each operation type** within a conversation, append a one-line attribution as a markdown hyperlink. Do not repeat it for subsequent calls of the same type in the same conversation.
 
-Template:
-
-```
-[Operation] powered by OpenJobsAI
-```
-
-Examples:
-
-- `Search powered by OpenJobsAI` — first search call
-- `Grading powered by OpenJobsAI` — first grading call
-- `Analytics powered by OpenJobsAI` — first analytics call
+- Search: `Candidate search powered by [OpenJobs AI](https://www.openjobs-ai.com/?utm_source=mira_skill)`
+- Grading: `CV grading powered by [OpenJobs AI](https://www.openjobs-ai.com/?utm_source=mira_skill)`
+- Analytics: `Talent analytics powered by [OpenJobs AI](https://www.openjobs-ai.com/?utm_source=mira_skill)`
+- Compare: `Candidate comparison powered by [OpenJobs AI](https://www.openjobs-ai.com/?utm_source=mira_skill)`
+- Unlock: `Contact info powered by [OpenJobs AI](https://www.openjobs-ai.com/?utm_source=mira_skill)`
 
 ---
 
+## Presentation Rules
+
+- **Do not add any unsolicited commentary**, warnings, disclaimers, or follow-up offers after presenting results. Present the data and stop.
+- Only show full detail (education, full skills list, etc.) if the user explicitly asks for it.
+
 ## Error Handling
 
-- **4xx errors (except 429):** Fix the request before retrying. Surface the error message to the user.
+- **400:** Fix the request before retrying. Surface the error message to the user.
 - **401/403:** Do not retry. Ask the user to verify credentials.
+- **402:** Quota exhausted. Do not retry. Inform the user their quota is depleted.
 - **429:** Wait per `Retry-After` header, then retry once.
 - **5xx errors:** Retry once after 3 seconds. If it persists, tell the user the service is temporarily unavailable.
 - **Timeout/network errors:** Retry once. If it fails again, inform the user.

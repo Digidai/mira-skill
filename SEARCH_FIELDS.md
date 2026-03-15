@@ -9,22 +9,30 @@ Complete reference for all filter fields accepted by the `people-fast-search` en
 | Field | Type | Example Value |
 |---|---|---|
 | `full_name` | string | `"John Smith"` |
-| `title` | string | `"Backend Engineer"` |
+| `headline` | string | `"Senior Engineer at Google"` |
+| `active_title` | string | `"Backend Engineer"` |
+| `active_department` | string | `"Engineering"` |
 | `skills` | string[] | `["Python", "AWS"]` |
+| `skills_operator` | string | `"AND"` or `"OR"` |
 | `country` | string | `"United States"` |
 | `state` | string | `"California"` |
 | `city` | string | `"San Francisco"` |
-| `min_experience_months` | integer | `60` |
-| `max_experience_months` | integer | `180` |
+| `experience_months_min` | integer | `60` |
+| `experience_months_max` | integer | `84` |
 | `is_working` | boolean | `true` |
+| `is_decision_maker` | boolean | `true` |
 | `management_level` | string | `"Director"` |
+| `level` | string | `"Senior"` |
+| `role` | string | `"Engineering and Technical"` |
 | `company_name` | string | `"Stripe"` |
-| `company_size` | string | `"51-200"` |
-| `company_industry` | string | `"Information Technology"` |
+| `industry` | string | `"Technology, Information and Media"` |
 | `company_type` | string | `"Privately Held"` |
-| `industry` | string | `"Finance & Accounting"` |
-| `function` | string | `"Engineering"` |
-| `employment_type` | string | `"Full-Time"` |
+| `certifications` | string | `"AWS"` |
+| `languages` | string[] | `["English", "Spanish"]` |
+| `degree_level_min` | integer | `2` (Master) |
+| `institution_name` | string | `"Stanford University"` |
+| `major` | string | `"Computer Science"` |
+| `institution_ranking_max` | integer | `100` |
 
 ---
 
@@ -44,15 +52,29 @@ Search by candidate's name. Useful when the user asks for a specific person by n
 
 ---
 
-## Title
+## Headline
 
-**Type:** string (partial match)
+**Type:** string (fuzzy match)
+
+Search by the candidate's LinkedIn headline text. Useful for broad keyword matching across the entire headline.
+
+```json
+{ "headline": "Machine Learning" }
+```
+
+---
+
+## Active Title
+
+**Field:** `active_title` (alias: `title`)
+
+**Type:** string (fuzzy match)
 
 The API performs partial, case-insensitive matching on the candidate's current job title. Use the canonical form from the table below when possible.
 
 ### Common Title Values
 
-| User Intent | `title` Value |
+| User Intent | `active_title` Value |
 |---|---|
 | Software engineer (general) | `"Software Engineer"` |
 | Backend engineer / developer | `"Backend Engineer"` |
@@ -79,17 +101,35 @@ The API performs partial, case-insensitive matching on the candidate's current j
 | Account executive | `"Account Executive"` |
 
 **Notes:**
-- There is no dedicated "Lead" title filter. For lead-level candidates, use `title: "Senior Engineer"` or `title: "Staff Engineer"` and combine with experience range filters.
+- There is no dedicated "Lead" title filter. For lead-level candidates, use `active_title: "Senior Engineer"` or `active_title: "Staff Engineer"` and combine with experience range filters.
 - Seniority prefixes (Senior, Staff, Principal) can be included in the title string — the partial match will work (e.g., `"Senior Software Engineer"`).
 - If in doubt, use the broader form (e.g., `"Engineer"` rather than `"Backend Engineer"`) and rely on `skills` to narrow results.
 
 ---
 
+## Active Department
+
+**Field:** `active_department`
+
+**Type:** string (fuzzy match)
+
+Filter by the candidate's current department (e.g., "Engineering", "Sales", "Marketing").
+
+```json
+{ "active_department": "Engineering" }
+```
+
+---
+
 ## Skills
 
-**Type:** string[] (AND matching — all listed skills must be present)
+**Type:** string[] (default AND matching — all listed skills must be present)
 
-Skills are matched against the candidate's skill list. Matching is case-insensitive but otherwise exact per skill value. All skills in the array must be present on the candidate's profile for a match.
+Skills are matched against the candidate's skill list. Matching is case-insensitive but otherwise exact per skill value. Each skill must be atomic (e.g., `"Python"`, not `"Python backend development"`).
+
+Use `skills_operator` to control matching logic:
+- `"AND"` (default) — all skills must be present
+- `"OR"` — any skill can match
 
 ### Common Skill Values
 
@@ -110,10 +150,10 @@ Skills are matched against the candidate's skill list. Matching is case-insensit
 
 ### Matching Behavior
 
-- **AND logic**: `["Python", "AWS"]` returns only candidates who have both Python AND AWS.
-- **No OR logic**: To search for candidates with Python OR Go, run two separate searches and combine the results.
+- **AND logic** (default): `["Python", "AWS"]` with `skills_operator: "AND"` returns only candidates who have both Python AND AWS.
+- **OR logic**: `["Python", "Go"]` with `skills_operator: "OR"` returns candidates who have Python OR Go (or both).
 - **Exact skill names**: `"React"` will not match `"React.js"` or `"ReactJS"`. Use the canonical form listed above.
-- **Limit to 2-5 skills** per search. Too many required skills will return zero results. Start with 2-3 core skills and add more only to narrow an overly broad result set.
+- **Limit to 2-5 skills** per search. Too many required skills with AND logic will return zero results. Start with 2-3 core skills and add more only to narrow an overly broad result set.
 
 ---
 
@@ -181,17 +221,17 @@ Always set the parent location fields when specifying a child:
 
 ## Experience Months
 
-### min_experience_months
+### experience_months_min
 
 **Type:** integer
 
 Minimum total professional experience in months. A value of `60` means "at least 5 years."
 
-### max_experience_months
+### experience_months_max
 
 **Type:** integer
 
-Maximum total professional experience in months. A value of `180` means "at most 15 years."
+Maximum total professional experience in months. A value of `84` means "at most 7 years."
 
 ### Interpretation Guide
 
@@ -201,10 +241,10 @@ Maximum total professional experience in months. A value of `180` means "at most
 | Junior / under 3 years | `0` | `36` |
 | Mid-level / 3-5 years | `36` | `60` |
 | Mid-level (broad) / 3-8 years | `36` | `96` |
-| Senior / 5+ years (IC context) | `60` | `180` |
-| Senior / 5+ years (with Lead/Manager signals) | `60` | `300` |
-| Staff / principal | `120` | `300` |
-| 10+ years (IC context) | `120` | `240` |
+| Senior / 5+ years (IC context) | `60` | `84` |
+| Senior / 5+ years (with Lead/Manager signals) | `60` | `180` |
+| Staff / principal | `120` | `180` |
+| 10+ years (IC context) | `120` | `144` |
 | 10+ years (with senior/lead signals) | `120` | `300` |
 | About 5 years | `36` | `84` |
 | About 10 years | `96` | `144` |
@@ -233,6 +273,20 @@ See also the **Experience Range Translation** table in `SKILL.md` for the full s
 
 ---
 
+## is_decision_maker
+
+**Type:** boolean
+
+Filter for candidates who are decision makers within their organization.
+
+| Value | Meaning |
+|---|---|
+| `true` | Decision maker (hiring authority, budget control, etc.) |
+| `false` | Not a decision maker |
+| omitted / `null` | No filter |
+
+---
+
 ## management_level
 
 **Type:** string (enum)
@@ -257,7 +311,7 @@ Filter by the candidate's management/seniority level.
 | `"Intern"` | Interns and trainees |
 
 **Mapping from user intent:**
-- "junior" / "entry level" → `"Specialist"` combined with `max_experience_months: 36`
+- "junior" / "entry level" → `"Specialist"` combined with `experience_months_max: 36`
 - "senior engineer" → `"Senior"`
 - "manager" / "team lead" → `"Manager"`
 - "director" → `"Director"`
@@ -265,6 +319,71 @@ Filter by the candidate's management/seniority level.
 - "C-level" / "executive" → `"C-Level"`
 - "founder" / "co-founder" → `"Founder"`
 - "intern" → `"Intern"`
+
+---
+
+## Level
+
+**Type:** string (exact match)
+
+Position level filter. Uses the same enum values as `management_level` — both fields are accepted by the API.
+
+### Accepted Values
+
+| Value |
+|---|
+| `"C-Level"` |
+| `"Director"` |
+| `"Founder"` |
+| `"Head"` |
+| `"Intern"` |
+| `"Manager"` |
+| `"Owner"` |
+| `"Partner"` |
+| `"President/Vice President"` |
+| `"Senior"` |
+| `"Specialist"` |
+
+---
+
+## Role
+
+**Type:** string (exact match)
+
+Professional function/role classification. Different from the `function` field — use the values below.
+
+### Accepted Values
+
+| Value |
+|---|
+| `"Administrative"` |
+| `"C-Suite"` |
+| `"Consulting"` |
+| `"Customer Service"` |
+| `"Design"` |
+| `"Education"` |
+| `"Engineering and Technical"` |
+| `"Finance & Accounting"` |
+| `"Human Resources"` |
+| `"Legal"` |
+| `"Marketing"` |
+| `"Medical"` |
+| `"Operations"` |
+| `"Other"` |
+| `"Product"` |
+| `"Project Management"` |
+| `"Real Estate"` |
+| `"Research"` |
+| `"Sales"` |
+| `"Trades"` |
+
+**Mapping from user intent:**
+- "engineer" / "developer" → `"Engineering and Technical"`
+- "product manager" → `"Product"`
+- "designer" → `"Design"`
+- "recruiter" / "HR" → `"Human Resources"`
+- "sales" / "account executive" → `"Sales"`
+- "marketing" → `"Marketing"`
 
 ---
 
@@ -320,70 +439,57 @@ Industry of the candidate's current employer. This is distinct from the candidat
 
 ### company_type
 
-**Type:** string (enum)
+**Type:** string (exact match)
 
 | Value |
 |---|
-| `"Public Company"` |
-| `"Privately Held"` |
-| `"Nonprofit"` |
+| `"Educational"` |
 | `"Government Agency"` |
-| `"Educational Institution"` |
+| `"Nonprofit"` |
 | `"Partnership"` |
-| `"Sole Proprietorship"` |
+| `"Privately Held"` |
+| `"Public Company"` |
+| `"Self-Employed"` |
+| `"Self-Owned"` |
 
 ---
 
 ## Industry
 
-**Type:** string (enum)
+**Type:** string (exact match)
 
-The candidate's professional industry classification. This describes the candidate's domain, not necessarily the employer's industry.
+The industry classification. Used in both `people-fast-search` and `people-stats`.
 
 ### Accepted Values
 
-| Value | Notes |
-|---|---|
-| `"Accounting"` | |
-| `"Administrative"` | |
-| `"Advertising & Marketing"` | Uses `&` |
-| `"Aerospace & Defense"` | Uses `&` |
-| `"Agriculture"` | |
-| `"Arts & Design"` | Uses `&` |
-| `"Automotive"` | |
-| `"Banking"` | |
-| `"Biotechnology"` | |
-| `"Business Development"` | |
-| `"Consulting"` | |
-| `"Consumer Goods"` | |
-| `"Education"` | |
-| `"Energy & Utilities"` | Uses `&` |
-| `"Engineering"` | |
-| `"Entertainment"` | |
-| `"Environmental Services"` | |
-| `"Finance & Accounting"` | Uses `&` not "and" |
-| `"Financial Services"` | |
-| `"Food & Beverage"` | Uses `&` |
-| `"Government"` | |
-| `"Healthcare"` | |
-| `"Hospitality"` | |
-| `"Human Resources"` | |
-| `"Information Technology"` | |
-| `"Insurance"` | |
-| `"Legal"` | |
-| `"Logistics & Supply Chain"` | Uses `&` |
-| `"Manufacturing"` | |
-| `"Media & Communications"` | Uses `&` |
-| `"Mining & Metals"` | Uses `&` |
-| `"Nonprofit"` | |
-| `"Pharmaceuticals"` | |
-| `"Real Estate"` | |
-| `"Retail"` | |
-| `"Sales"` | |
-| `"Telecommunications"` | |
-| `"Transportation"` | |
+| Value |
+|---|
+| `"Accommodation Services"` |
+| `"Administrative and Support Services"` |
+| `"Construction"` |
+| `"Consumer Services"` |
+| `"Education"` |
+| `"Entertainment Providers"` |
+| `"Farming, Ranching, Forestry"` |
+| `"Financial Services"` |
+| `"Government Administration"` |
+| `"Holding Companies"` |
+| `"Hospitals and Health Care"` |
+| `"Manufacturing"` |
+| `"Oil, Gas, and Mining"` |
+| `"Professional Services"` |
+| `"Real Estate and Equipment Rental Services"` |
+| `"Retail"` |
+| `"Technology, Information and Media"` |
+| `"Transportation, Logistics, Supply Chain and Storage"` |
+| `"Utilities"` |
+| `"Wholesale"` |
 
-**Important:** Multi-word industries that contain a conjunction always use `&` (ampersand), never `and`. For example, `"Finance & Accounting"` is correct; `"Finance and Accounting"` will not match.
+**Important:**
+- These are the official industry values from the OpenJobs AI API.
+- Use commas and "and" exactly as shown (e.g., `"Farming, Ranching, Forestry"`, not `"Agriculture"`).
+- `"Technology, Information and Media"` covers IT, software, internet, telecom, and media companies.
+- `"Professional Services"` covers consulting, legal, accounting, and similar service firms.
 
 ---
 
@@ -453,7 +559,90 @@ Filter by the candidate's current employment arrangement.
 | `"Volunteer"` | Volunteer positions |
 | `"Self-Employed"` | Independent freelancer or consultant (works for themselves, no company) |
 
-**"Self-Employed" vs. "Self-Owned" distinction:**
-- `"Self-Employed"` is the correct API value. It describes individuals who work independently as freelancers, consultants, or sole practitioners.
-- There is NO `"Self-Owned"` value. If a user asks for business owners or founders, use `management_level: "Owner"` instead, not `employment_type`.
-- `"Self-Employed"` = works for themselves (freelancer/consultant). `management_level: "Owner"` = owns/founded a company (may have employees).
+**"Self-Employed" in Employment Type vs. "Self-Owned" in Company Type:**
+- `employment_type: "Self-Employed"` = individual who works independently as a freelancer, consultant, or sole practitioner.
+- `company_type: "Self-Owned"` = company ownership classification (the company itself is self-owned).
+- These are different fields. If a user asks for business owners or founders, use `management_level: "Owner"` or `level: "Owner"`, not `employment_type`.
+
+---
+
+## Certifications
+
+**Type:** string (fuzzy match)
+
+Filter by professional certifications. Uses fuzzy matching.
+
+```json
+{ "certifications": "AWS" }
+```
+
+Common values: `"AWS"`, `"PMP"`, `"CPA"`, `"CISSP"`, `"CFA"`, `"Google Cloud"`, `"Azure"`, `"Scrum Master"`, `"Six Sigma"`
+
+---
+
+## Languages
+
+**Type:** string[] (all must match)
+
+Filter by spoken languages. All specified languages must be present on the candidate's profile.
+
+```json
+{ "languages": ["English", "Mandarin"] }
+```
+
+Common values: `"English"`, `"Spanish"`, `"Mandarin"`, `"French"`, `"German"`, `"Japanese"`, `"Portuguese"`, `"Arabic"`, `"Hindi"`, `"Korean"`
+
+---
+
+## Education Fields
+
+### degree_level_min
+
+**Type:** integer
+
+Minimum degree level:
+
+| Value | Meaning |
+|---|---|
+| `0` | Other / Unclear |
+| `1` | Bachelor's degree |
+| `2` | Master's degree |
+| `3` | PhD / Doctorate |
+
+```json
+{ "degree_level_min": 2 }
+```
+
+This returns candidates with a Master's degree or higher.
+
+### institution_name
+
+**Type:** string (fuzzy match)
+
+Filter by university or institution name.
+
+```json
+{ "institution_name": "Stanford University" }
+```
+
+### major
+
+**Type:** string (fuzzy match)
+
+Filter by field of study / major.
+
+```json
+{ "major": "Computer Science" }
+```
+
+### institution_ranking_max
+
+**Type:** integer
+
+Filter by institution ranking (e.g., `100` means Top 100 universities).
+
+```json
+{ "institution_ranking_max": 50 }
+```
+
+This returns candidates who graduated from a Top 50 ranked university.

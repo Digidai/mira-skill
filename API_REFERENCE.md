@@ -2,7 +2,7 @@
 
 Base URL: `https://mira-api.openjobs-ai.com/v1/`
 
-All endpoints accept JSON request bodies and return JSON responses. Authentication is required via an `Authorization: Bearer $MIRA_KEY` header on every request.
+All endpoints accept JSON request bodies and return JSON responses (except `version` which is a GET). Authentication is required via an `Authorization: Bearer $MIRA_KEY` header on every request.
 
 All successful responses are wrapped in a standard envelope:
 
@@ -22,12 +22,40 @@ The `data` field contains the endpoint-specific payload described in each sectio
 
 | Endpoint | Method | Path | Description |
 |---|---|---|---|
+| **version** | GET | `/version` | Check API version |
 | **people-lookup** | POST | `/people-lookup` | Retrieve detailed profiles for one or more people by LinkedIn URL |
 | **people-compare** | POST | `/people-compare` | Compare two or more candidates side-by-side |
 | **people-bulk-grade** | POST | `/people-bulk-grade` | Grade a batch of candidates against a job description |
 | **people-grade** | POST | `/people-grade` | Grade a single CV/resume text against a job description |
 | **people-fast-search** | POST | `/people-fast-search` | Search for candidates matching specific filters |
 | **people-stats** | POST | `/people-stats` | Get aggregate statistics for a talent pool |
+| **people-unlock** | POST | `/people-unlock` | Unlock candidate contact information (email) |
+
+---
+
+## version
+
+Check the current API version. Used for session-start version checks.
+
+**URL:** `GET https://mira-api.openjobs-ai.com/v1/version`
+
+### Request
+
+No request body required. No authentication required.
+
+```bash
+curl -s https://mira-api.openjobs-ai.com/v1/version
+```
+
+### Response Example
+
+```json
+{
+  "version": "1.0.1"
+}
+```
+
+Compare the returned `version` with the skill's current version (`1.4.0`). If the server version is newer, notify the user that an update is available.
 
 ---
 
@@ -47,7 +75,7 @@ Retrieve detailed profiles for one or more people by LinkedIn URL. Takes an arra
 }
 ```
 
-The `linkedin_urls` field is an **array** (not a single string). You may look up multiple profiles in one request.
+The `linkedin_urls` field is an **array** (not a single string). Accepts 1–50 URLs per request.
 
 **Deduplication:** The API silently deduplicates URLs. If you pass the same URL twice, `data.total` will reflect the deduplicated count (e.g., 1 instead of 2). This is not an error — plan for it when checking counts.
 
@@ -208,7 +236,7 @@ Each object in the `results` array contains:
 
 ## people-compare
 
-Compare two or more candidates side-by-side. Useful for shortlist evaluations.
+Compare two or more candidates side-by-side. Useful for shortlist evaluations. Accepts 2–10 LinkedIn URLs per request.
 
 **URL:** `POST https://mira-api.openjobs-ai.com/v1/people-compare`
 
@@ -355,7 +383,7 @@ Each object in the `comparisons` array has the same structure as a `people-looku
 
 ## people-bulk-grade
 
-Grade a batch of candidates against a job description. Each candidate receives a score (0-100) and a description of their fit.
+Grade a batch of candidates against a job description. Accepts 1–20 LinkedIn URLs per request. Each candidate receives a score (0-100) and a description of their fit. Runs up to 5 concurrent AI grading requests per call.
 
 **URL:** `POST https://mira-api.openjobs-ai.com/v1/people-bulk-grade`
 
@@ -493,17 +521,18 @@ Search for candidates matching specific filters such as job title, skills, locat
 
 ```json
 {
-  "title": "Backend Engineer",
+  "active_title": "Backend Engineer",
   "skills": ["Python", "AWS"],
+  "skills_operator": "AND",
   "country": "United States",
   "state": "California",
-  "min_experience_months": 60,
-  "max_experience_months": 144,
+  "experience_months_min": 60,
+  "experience_months_max": 144,
   "is_working": true
 }
 ```
 
-All filter fields are optional. Omit a field or set it to `null` to skip that filter.
+All filter fields are optional. Omit a field or set it to `null` to skip that filter. At least one filter field is required.
 
 ### Response Example
 
@@ -645,25 +674,60 @@ All filter fields are optional. Omit a field or set it to `null` to skip that fi
 
 ### Filter Reference
 
+**Basic Info:**
+
+| Field | Type | Match | Description |
+|---|---|---|---|
+| `full_name` | string | fuzzy | Candidate's full name |
+| `headline` | string | fuzzy | LinkedIn headline text |
+| `is_working` | boolean | exact | Currently employed |
+| `is_decision_maker` | boolean | exact | Whether candidate is a decision maker |
+
+**Location (all exact match — MUST use full names):**
+
 | Field | Type | Description |
 |---|---|---|
-| `full_name` | string | Candidate's full name (partial match) |
-| `title` | string | Job title to search for (partial match) |
-| `skills` | string[] | Required skills (all must be present) |
-| `country` | string | Country filter (**MUST use full names**, e.g., "United States" not "US") |
-| `state` | string | State or region filter (**MUST use full names**, e.g., "California" not "CA") |
-| `city` | string | City filter |
-| `min_experience_months` | integer | Minimum total experience in months |
-| `max_experience_months` | integer | Maximum total experience in months |
-| `is_working` | boolean | Filter by current employment status |
-| `management_level` | string | Seniority level (e.g., "Specialist", "Senior", "Manager", "Director", "C-Level") |
-| `company_name` | string | Current employer name |
-| `company_size` | string | Employer size range (e.g., "51-200", "10001+") |
-| `company_industry` | string | Employer industry (e.g., "Information Technology") |
-| `company_type` | string | Employer type (e.g., "Public Company", "Privately Held") |
-| `industry` | string | Candidate's professional industry classification |
-| `function` | string | Candidate's professional function (e.g., "Engineering", "Product Management") |
-| `employment_type` | string | Employment arrangement (e.g., "Full-Time", "Contract") |
+| `country` | string | Country (**"United States"** not "US") |
+| `state` | string | State/region (**"California"** not "CA") |
+| `city` | string | City name |
+
+**Current Position:**
+
+| Field | Type | Match | Description |
+|---|---|---|---|
+| `active_title` | string | fuzzy | Current job title (alias: `title`) |
+| `active_department` | string | fuzzy | Current department |
+| `management_level` | string | exact | Seniority level (see `SEARCH_FIELDS.md` for values) |
+
+**Work Experience:**
+
+| Field | Type | Match | Description |
+|---|---|---|---|
+| `experience_months_min` | integer | range | Minimum total experience in months |
+| `experience_months_max` | integer | range | Maximum total experience in months |
+| `company_name` | string | fuzzy | Current employer name |
+| `industry` | string | exact | Industry classification (see `SEARCH_FIELDS.md`) |
+| `company_type` | string | exact | Employer type (e.g., "Public Company", "Privately Held") |
+| `level` | string | exact | Position level: C-Level, Director, Founder, Head, Intern, Manager, Owner, Partner, President/Vice President, Senior, Specialist |
+| `role` | string | exact | Professional function: Administrative, C-Suite, Consulting, Customer Service, Design, Education, Engineering and Technical, Finance & Accounting, Human Resources, Legal, Marketing, Medical, Operations, Other, Product, Project Management, Real Estate, Research, Sales, Trades |
+
+**Skills & Languages:**
+
+| Field | Type | Description |
+|---|---|---|
+| `skills` | string[] | Required skills. Each skill must be atomic (e.g., `"Python"`, not `"Python backend development"`) |
+| `skills_operator` | string | `"AND"` (default) or `"OR"` — logic for skills matching |
+| `certifications` | string | Certifications (fuzzy match, e.g., `"AWS"`, `"PMP"`) |
+| `languages` | string[] | Spoken languages — all must match |
+
+**Education:**
+
+| Field | Type | Description |
+|---|---|---|
+| `degree_level_min` | integer | Minimum degree: `0`=Other/Unclear, `1`=Bachelor, `2`=Master, `3`=PhD |
+| `institution_name` | string | University/institution name (fuzzy match) |
+| `major` | string | Field of study (fuzzy match) |
+| `institution_ranking_max` | integer | Max institution ranking (e.g., `100` = Top 100 universities) |
 
 For the complete list of enum values for each field, see `SEARCH_FIELDS.md`.
 
@@ -687,15 +751,45 @@ Get aggregate statistics for a talent pool matching specific filters. Useful for
 
 ```json
 {
-  "title": "Software Engineer",
   "country": "United States",
-  "group_by": ["state"]
+  "group_by": ["management_level"],
+  "stats_fields": ["experience_months"],
+  "histogram_fields": [{"field": "age", "interval": 10}]
 }
 ```
 
-**Note:** The `group_by` field is an **array** of dimension strings (e.g., `["state"]`, `["state", "city"]`).
+The request accepts the same filter fields as `people-fast-search`, plus analytics-specific fields below.
 
-**Known issue:** Invalid `group_by` values (e.g., `["role"]`, `["level"]`) cause a **500 Internal Server Error** instead of a 400/422. Only use verified values: `"state"`, `"country"`, `"city"`. Always wrap `people-stats` calls with error handling.
+### Analytics Fields
+
+**`group_by`** — Array of dimension strings (max 5 per request):
+
+```
+country, city, state,
+active_title, active_department, management_level,
+job_title, company_name, industry, company_type, level, role,
+exp_country, exp_city,
+degree_level, degree_str, institution_name, major, institution_country, institution_city,
+skills, is_working, is_decision_maker, languages
+```
+
+**Known issue:** Some `group_by` values not in the list above may cause a **500 Internal Server Error** instead of a 400/422. Always use values from the list above and wrap `people-stats` calls with error handling.
+
+**`stats_fields`** — Array of field names for min/max/avg/sum statistics (max 3 per request):
+
+```
+experience_months, age, exp_duration, gpa, institution_ranking, company_employees_count
+```
+
+**`histogram_fields`** — Array of objects for bucketed distribution (max 2 per request):
+
+```
+experience_months  (default interval: 12)
+age                (default interval: 5)
+institution_ranking (default interval: 50)
+```
+
+Each entry is an object: `{"field": "age", "interval": 10}`.
 
 ### Response Example
 
@@ -706,19 +800,26 @@ Get aggregate statistics for a talent pool matching specific filters. Useful for
   "data": {
     "total_matched": 10000,
     "aggregations": {
-      "state": [
-        {
-          "key": "California",
-          "count": 6653415
-        },
-        {
-          "key": "New York",
-          "count": 3241022
-        },
-        {
-          "key": "Texas",
-          "count": 2105893
-        }
+      "management_level": [
+        { "key": "Senior", "count": 3200 },
+        { "key": "Specialist", "count": 2800 },
+        { "key": "Manager", "count": 1500 }
+      ]
+    },
+    "stats": {
+      "experience_months": {
+        "min": 6,
+        "max": 480,
+        "avg": 96.5,
+        "sum": 965000
+      }
+    },
+    "histograms": {
+      "age": [
+        { "key": 20, "count": 500 },
+        { "key": 30, "count": 4200 },
+        { "key": 40, "count": 3100 },
+        { "key": 50, "count": 1800 }
       ]
     }
   }
@@ -732,9 +833,63 @@ The `data` object contains:
 | Field | Type | Description |
 |---|---|---|
 | `total_matched` | integer | Total number of candidates matching the filters |
-| `aggregations` | object | Breakdown by each dimension in `group_by` |
+| `aggregations` | object | Breakdown by each `group_by` dimension — array of `{ "key", "count" }` |
+| `stats` | object | Min/max/avg/sum for each `stats_fields` entry |
+| `histograms` | object | Bucketed distribution for each `histogram_fields` entry |
 
-Each key in `aggregations` corresponds to a `group_by` dimension and contains an array of `{ "key": string, "count": integer }` objects.
+---
+
+## people-unlock
+
+Unlock candidate contact information (email addresses) by LinkedIn URL. Each URL consumes 1 quota point.
+
+**URL:** `POST https://mira-api.openjobs-ai.com/v1/people-unlock`
+
+### Request Example
+
+```json
+{
+  "linkedin_urls": [
+    "https://www.linkedin.com/in/johndoe",
+    "https://www.linkedin.com/in/janesmith"
+  ]
+}
+```
+
+Accepts 1–50 LinkedIn URLs per request. URLs are automatically deduplicated and trailing slashes are stripped.
+
+### Response Example
+
+```json
+{
+  "code": 200,
+  "message": "ok",
+  "data": {
+    "results": [
+      {
+        "linkedin_url": "https://www.linkedin.com/in/johndoe",
+        "personEmail": "john.doe@gmail.com",
+        "workEmail": "jdoe@acmecorp.com"
+      },
+      {
+        "linkedin_url": "https://www.linkedin.com/in/janesmith",
+        "personEmail": null,
+        "workEmail": "jane.smith@initech.com"
+      }
+    ]
+  }
+}
+```
+
+### Field Reference
+
+| Field | Type | Description |
+|---|---|---|
+| `linkedin_url` | string | The LinkedIn URL that was submitted |
+| `personEmail` | string or null | Personal email address (null if not available) |
+| `workEmail` | string or null | Work email address (null if not available) |
+
+**Quota:** Each LinkedIn URL consumes 1 quota point. Quota is checked upfront and deducted atomically. A 402 error means quota is exhausted.
 
 ---
 
@@ -756,10 +911,12 @@ Common error codes:
 | HTTP Status | Code | Description |
 |---|---|---|
 | 400 | `invalid_request` | Missing or malformed parameters |
-| 401 | `unauthorized` | Missing or invalid API token |
+| 401 | `unauthorized` | Missing or invalid API token or API key not found |
+| 402 | `quota_exhausted` | Quota exhausted — do not retry |
+| 403 | `forbidden` | API key disabled, expired, or insufficient scope |
 | 404 | `not_found` | Requested resource does not exist |
-| 422 | `unprocessable` | Semantically invalid request (e.g., empty `jd` for grading endpoints) |
-| 429 | `rate_limited` | Too many requests; retry after the indicated interval |
+| 422 | `unprocessable` | Semantically invalid request (e.g., empty `jd` for grading endpoints, invalid parameter format) |
+| 429 | `rate_limited` | Too many requests (RPM); retry after the indicated interval |
 | 500 | `internal_error` | Unexpected server error (also triggered by invalid `group_by` in people-stats) |
 
 ### Validation Quirks
